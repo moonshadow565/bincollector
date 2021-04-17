@@ -19,13 +19,15 @@ int main(int argc, char** argv) {
             auto const name = entry->find_name(hashlist);
             auto const link = entry->get_link();
             fmt::print("{:016X},{},{},{}\n", hash, str(extension), str(name), str(link));
-            if (!link.empty() && (extension == u8".client" || extension == u8".wad")) {
-                auto wad = file::FileWAD::list_wad(entry->open());
-                auto const hash = entry->find_hash(hashlist);
-                auto const extension = entry->find_extension(hashlist);
-                auto const name = entry->find_name(hashlist);
-                auto const link = entry->get_link();
-                fmt::print("\t{:016X},{},{},{}\n", hash, str(extension), str(name), str(link));
+            if (link.empty() && (extension == u8".client" || extension == u8".wad")) {
+                auto wad_list = file::FileWAD::list_wad(entry->open());
+                for (auto& entry: wad_list) {
+                    auto const hash = entry->find_hash(hashlist);
+                    auto const extension = entry->find_extension(hashlist);
+                    auto const name = entry->find_name(hashlist);
+                    auto const link = entry->get_link();
+                    fmt::print("\t{:016X},{},{},{}\n", hash, str(extension), str(name), str(link));
+                }
             }
         }
     } catch (std::runtime_error const& error) {

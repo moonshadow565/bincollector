@@ -114,7 +114,13 @@ std::uint64_t FileRMAN::find_hash(HashList& hashes) {
 }
 
 std::u8string FileRMAN::find_extension(HashList& hashes) {
-    return hashes.find_extension_by_name(info_.path);
+    auto ext = hashes.find_extension_by_name(info_.path);
+    if (ext.empty()) {
+        if (auto link = get_link(); !link.empty()) {
+            ext = hashes.find_extension_by_name(link);
+        }
+    }
+    return ext;
 }
 
 std::u8string FileRMAN::get_link() {

@@ -123,13 +123,16 @@ std::uint64_t FileWAD::find_hash([[maybe_unused]] HashList& hashes) {
 }
 
 std::u8string FileWAD::find_extension(HashList& hashes) {
-    bt_assert(info_.type != wad::Entry::Type::FileRedirection);
     auto ext = hashes.find_extension_by_hash(info_.path);
     if (ext.empty()) {
-        auto const reader = open();
-        auto const header_size = std::min(info_.size_uncompressed, 32u);
-        auto const header_data = reader->read(0, header_size);
-        ext = hashes.find_extension_by_data(info_.path, header_data);
+        if (auto link = get_link(); !link.empty()) {
+            ext = hashes.find_extension_by_name(link);
+        } else {
+            auto const reader = open();
+            auto const header_size = std::min(info_.size_uncompressed, 32u);
+            auto const header_data = reader->read(0, header_size);
+            ext = hashes.find_extension_by_data(info_.path, header_data);
+        }
     }
     return ext;
 }
