@@ -10,6 +10,7 @@ add_subdirectory(deps/miniz)
 add_subdirectory(deps/zstd)
 
 add_executable(bincollector
+    src/app.hpp
     src/common/bt_error.cpp
     src/common/bt_error.hpp
     src/common/fltbf.hpp

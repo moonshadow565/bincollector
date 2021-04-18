@@ -9,12 +9,12 @@
 
 namespace file {
     struct HashList {
-        void rebuild_extension_list();
         std::uint64_t find_hash_by_name(std::u8string name);
         std::u8string find_name_by_hash(std::uint64_t hash);
         std::u8string find_extension_by_name(std::u8string name);
         std::u8string find_extension_by_hash(std::uint64_t hash);
-        std::u8string find_extension_by_data(std::uint64_t hash, std::span<char const> data = {});
+        std::u8string find_extension_by_data(std::uint64_t hash, std::span<char const> data);
+
         inline bool read_names_list(fs::path const& path) {
             auto const result = read_list(names, path);
             rebuild_extension_list();
@@ -34,9 +34,8 @@ namespace file {
         std::unordered_map<std::uint64_t, std::u8string> names;
         std::unordered_map<std::uint64_t, std::u8string> extensions;
 
-        static bool read_list(std::unordered_map<std::uint64_t, std::u8string>& list,
-                              fs::path const& path);
-        static void write_list(std::unordered_map<std::uint64_t, std::u8string> const& list,
-                               fs::path const& path);
+        void rebuild_extension_list();
+        static bool read_list(std::unordered_map<std::uint64_t, std::u8string>& list, fs::path const& path);
+        static void write_list(std::unordered_map<std::uint64_t, std::u8string> const& list, fs::path const& path);
     };
 }

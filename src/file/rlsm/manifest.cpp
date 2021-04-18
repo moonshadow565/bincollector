@@ -19,7 +19,7 @@ template<typename T> requires(std::is_trivial_v<T>)
 static inline std::vector<T> read_list(std::span<char const>& data) {
     auto const count = read_value<std::uint32_t>(data);
     bt_assert(data.size() >= sizeof(T) * count);
-    auto result = std::vector<T>{};
+    auto result = std::vector<T>{count};
     std::memcpy(result.data(), data.data(), sizeof(T) * count);
     data = data.subspan(sizeof(T) * count);
     return result;
@@ -36,8 +36,8 @@ RLSMManifest RLSMManifest::read(std::span<char const> data) {
     bt_assert(data.size() >= namesSize);
     bt_assert(namesSize > 0 && data[namesSize - 1] == u8'\0');
     for (auto i = data.data(); i != data.data() + namesSize; ++i) {
-        bt_assert(result.names.size() < namesCount);
-        auto const length = ::strlen(data.data());
+        bt_assert(result.names.size() <= (namesCount + 1));
+        auto const length = ::strlen(i);
         result.names.emplace_back(i, i + length);
         i += length;
     }
@@ -53,7 +53,7 @@ std::vector<FileInfo> RLSMManifest::list_files() const {
         auto const& parent = folders[p];
         bt_assert(names.size() >= parent.name);
         bt_assert(folders.size() >= parent.folders_start + parent.folders_count);
-        bt_assert(folders.size() >= parent.files_start + parent.files_count);
+        bt_assert(files.size() >= parent.files_start + parent.files_count);
         for (std::uint32_t c = parent.folders_start; c != parent.folders_start + parent.folders_count; ++c) {
             dir_parents[c] = p;
         }
@@ -68,11 +68,10 @@ std::vector<FileInfo> RLSMManifest::list_files() const {
     for (auto const& file: files) {
         auto& file_info = result.emplace_back(file, names[file.name]);
         visited.clear();
-        while (auto p = file_parents[file.name]) {
+        for (auto p = file_parents[file.name]; p ; p = dir_parents[p]) {
             bt_assert(!visited.contains(p));
             visited.insert(p);
             file_info.name = names[p] + u8"/" + file_info.name;
-            p = dir_parents[p];
         }
     }
     return result;

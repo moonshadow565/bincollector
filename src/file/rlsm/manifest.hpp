@@ -37,7 +37,8 @@ namespace rlsm {
         std::uint32_t deploy_mode;
         std::uint32_t size_uncompressed;
         std::uint32_t size_compressed;
-        std::uint64_t date;
+        std::uint32_t date_low;
+        std::uint32_t date_hi;
     };
 
     struct FileInfo : RLSMFile {
