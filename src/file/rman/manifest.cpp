@@ -2,6 +2,7 @@
 #include <common/fs.hpp>
 #include <common/fltbf.hpp>
 #include <file/rman/manifest.hpp>
+#include <algorithm>
 #include <unordered_map>
 #include <cstring>
 #include <zstd.h>
@@ -41,6 +42,10 @@ RMANManifest RMANManifest::read(std::span<char const> data) {
         auto &lang = body.langs.emplace_back();
         lang.id = lang_table[0].as<LangID>();
         lang.name = lang_table[1].as<std::u8string>();
+        std::transform(lang.name.begin(), lang.name.end(), lang.name.begin(),
+                       [](char8_t c) -> char8_t {
+            return static_cast<char8_t>(c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c);
+        });
     }
     for (auto const& file_table : body_table[2].as<std::vector<Table>>()) {
         auto &file = body.files.emplace_back();

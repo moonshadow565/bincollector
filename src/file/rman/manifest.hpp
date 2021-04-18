@@ -41,9 +41,9 @@ namespace rman {
         uint8_t version_minor;
         uint16_t flags;
         uint32_t offset;
-        uint32_t size_uncompressed;
-        std::array<std::uint8_t, 8> checksum;
         uint32_t size_compressed;
+        std::array<std::uint8_t, 8> checksum;
+        uint32_t size_uncompressed;
     };
 
     struct RMANChunk {

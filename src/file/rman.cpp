@@ -44,7 +44,7 @@ struct FileRMAN::Reader final : IReader {
 
             // If we are in new bundle we need to open it
             if (i->bundle_id != last_bundle_id) {
-                auto const path = base_ / u8"bundles" / fmt::format(u8"{:016X}", i->bundle_id);
+                auto const path = base_ / u8"bundles" / fmt::format(u8"{:016X}.bundle", i->bundle_id);
                 bt_trace(u8"base: {}", base_.generic_u8string());
                 bt_rethrow(bundle.open(path).unwrap());
                 last_bundle_id = i->bundle_id;
@@ -150,7 +150,7 @@ IFile::List FileRMAN::list_manifest(rman::RMANManifest const& manifest, fs::path
     result.reserve(entries.size());
     for (auto const& entry: entries) {
         // FIXME: do we want to filter this here
-        if (!entry.langs.empty() && !entry.langs.contains(u8"en_us")) {
+        if (!entry.langs.contains(u8"none") && !entry.langs.contains(u8"en_us")) {
             continue;
         }
         result.emplace_back(std::make_shared<FileRMAN>(entry, cdn));
