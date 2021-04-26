@@ -2,7 +2,7 @@
 #include <file/hashlist.hpp>
 #include <file/wad.hpp>
 #include <zstd.h>
-#include <miniz.h>
+#include <zlib.h>
 
 using namespace file;
 
@@ -70,30 +70,31 @@ private:
 
 struct FileWAD::ReaderZLIB final : FileWAD::Reader {
     ReaderZLIB(wad::EntryInfo const& info, std::shared_ptr<IReader> source) :
-        Reader(info, source)
+        Reader(info, source), dctx_{}
     {
         bt_trace(u8"path hash: {:016X}", info_.path);
         data_ = bt_rethrow(std::unique_ptr<char[]>(new char[static_cast<std::size_t>(info_.size_uncompressed)]));
-        auto const result_init = mz_inflateInit2(&dctx_, 16 + MAX_WBITS);
-        bt_assert(result_init == MZ_OK);
+        auto const result_init = inflateInit2(&dctx_, 16 + MAX_WBITS);
+        bt_assert(result_init == Z_OK);
     }
     ~ReaderZLIB() {
-        mz_inflateEnd(&dctx_);
+        inflateEnd(&dctx_);
     }
 
     std::span<char const> read(std::size_t offset, std::size_t size) override {
         constexpr std::size_t const CHUNK_SIZE = 64 * 1024;
         bt_assert(info_.size_uncompressed >= offset + size);
+
         while (pos_uncompressed_ < offset + size) {
             auto const src_size = std::min(CHUNK_SIZE, info_.size_compressed - pos_compressed_);
             auto const src = source_->read(info_.offset + pos_compressed_, src_size);
-            auto const dst = data().subspan(offset + size);
+            auto const dst = data().subspan(pos_uncompressed_);
             dctx_.next_in = reinterpret_cast<unsigned char const*>(src.data());
             dctx_.avail_in = static_cast<unsigned int>(src.size());
             dctx_.next_out = reinterpret_cast<unsigned char*>(dst.data());
             dctx_.avail_out = static_cast<unsigned int>(dst.size());
-            auto const result_zlib = mz_inflate(&dctx_, MZ_SYNC_FLUSH);
-            bt_assert(result_zlib == MZ_OK || result_zlib == MZ_STREAM_END);
+            auto const result_zlib = inflate(&dctx_, Z_SYNC_FLUSH);
+            bt_assert(result_zlib == Z_OK || result_zlib == Z_STREAM_END);
             pos_compressed_ += src.size() - dctx_.avail_in;
             pos_uncompressed_ += dst.size() - dctx_.avail_out;
         }
@@ -101,7 +102,7 @@ struct FileWAD::ReaderZLIB final : FileWAD::Reader {
     }
 private:
     std::unique_ptr<char[]> data_ = {};
-    mz_stream dctx_ = {};
+    z_stream_s dctx_ = {};
     std::size_t pos_compressed_ = {};
     std::size_t pos_uncompressed_ = {};
 

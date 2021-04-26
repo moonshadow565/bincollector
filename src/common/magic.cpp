@@ -2,9 +2,9 @@
 
 [[nodiscard]] std::u8string_view Magic::find(std::span<char const> data) noexcept {
     constexpr Magic const list[] = {
-        { "RW\x01\x00", u8".wad" },
-        { "RW\x02\x00", u8".wad" },
-        { "RW\x03\x00", u8".wad" },
+        { "RW\x01", u8".wad" },
+        { "RW\x02", u8".wad" },
+        { "RW\x03", u8".wad" },
         { "RLSM", u8".releasemanifest" },
         { "RMAN", u8".manifest" },
         { "RADS Solution", u8".solutionmanifest" },
