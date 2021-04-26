@@ -70,7 +70,7 @@ void App::save_hashes() {
 void App::parse_args(int argc, char** argv) {
     argparse::ArgumentParser program("bincollector");
     program.add_argument("action")
-            .help("action: list, extract")
+            .help("action: list, extract, index ")
             .required()
             .action([](std::string const& value){
                 if (value == "list" || value == "ls") {
@@ -105,6 +105,10 @@ void App::parse_args(int argc, char** argv) {
     program.add_argument("--hashes-exts")
             .help("File: Hash list for extensions")
             .default_value(std::string{});
+    program.add_argument("--skip-wad")
+            .help("Skip .wad processing")
+            .default_value(false)
+            .implicit_value(true);
 
     program.parse_args(argc, argv);
     action = program.get<Action>("action");
@@ -115,6 +119,7 @@ void App::parse_args(int argc, char** argv) {
     extensions = parse_list(program.get<std::string>("--ext"));
     hash_path_names = from_std_string(program.get<std::string>("--hashes-names"));
     hash_path_extensions = from_std_string(program.get<std::string>("--hashes-exts"));
+    skip_wad = program.get<bool>("--skip-wad");
 }
 
 void App::run() {
@@ -132,10 +137,12 @@ void App::run() {
 void App::list_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
         if (entry->is_wad()) {
-            bt_trace(u8"wad: {}", entry->find_name(hashlist));
-            auto wad = std::make_shared<file::ManagerWAD>(entry);
-            list_manager(wad);
-            continue;
+            if (!skip_wad) {
+                bt_trace(u8"wad: {}", entry->find_name(hashlist));
+                auto wad = std::make_shared<file::ManagerWAD>(entry);
+                list_manager(wad);
+                continue;
+            }
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
@@ -152,9 +159,11 @@ void App::list_manager(std::shared_ptr<file::IManager> manager) {
 void App::extract_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
         if (entry->is_wad()) {
-            bt_trace(u8"wad: {}", entry->find_name(hashlist));
-            auto wad = std::make_shared<file::ManagerWAD>(entry);
-            extract_manager(wad);
+            if (!skip_wad) {
+                bt_trace(u8"wad: {}", entry->find_name(hashlist));
+                auto wad = std::make_shared<file::ManagerWAD>(entry);
+                extract_manager(wad);
+            }
             continue;
         }
         auto ext = entry->find_extension(hashlist);
@@ -178,9 +187,11 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager) {
 void App::index_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
         if (entry->is_wad()) {
-            bt_trace(u8"wad: {}", entry->find_name(hashlist));
-            auto wad = std::make_shared<file::ManagerWAD>(entry);
-            extract_manager(wad);
+            if (!skip_wad) {
+                bt_trace(u8"wad: {}", entry->find_name(hashlist));
+                auto wad = std::make_shared<file::ManagerWAD>(entry);
+                extract_manager(wad);
+            }
             continue;
         }
         auto ext = entry->find_extension(hashlist);

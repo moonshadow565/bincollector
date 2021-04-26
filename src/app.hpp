@@ -23,6 +23,7 @@ struct App {
     std::set<std::u8string> extensions = {};
     std::u8string hash_path_names = {};
     std::u8string hash_path_extensions = {};
+    bool skip_wad = {};
 
     void parse_args(int argc, char** argv);
     void load_hashes();

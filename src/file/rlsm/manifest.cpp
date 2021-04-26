@@ -65,13 +65,15 @@ std::vector<FileInfo> RLSMManifest::list_files() const {
         bt_assert(names.size() >= files[c].name);
     }
     auto visited = std::unordered_set<std::uint32_t>();
-    for (auto const& file: files) {
+    for (auto i = std::size_t{0}; i != files.size(); ++i) {
+        auto const& file = files[i];
         auto& file_info = result.emplace_back(file, names[file.name]);
         visited.clear();
-        for (auto p = file_parents[file.name]; p ; p = dir_parents[p]) {
+        for (auto p = file_parents[i]; p ; p = dir_parents[p]) {
             bt_assert(!visited.contains(p));
             visited.insert(p);
-            file_info.name = names[p] + u8"/" + file_info.name;
+            auto const& folder = folders[p];
+            file_info.name = names[folder.name] + u8"/" + file_info.name;
         }
     }
     return result;
