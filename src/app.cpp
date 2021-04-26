@@ -190,7 +190,7 @@ void App::index_manager(std::shared_ptr<file::IManager> manager) {
             if (!skip_wad) {
                 bt_trace(u8"wad: {}", entry->find_name(hashlist));
                 auto wad = std::make_shared<file::ManagerWAD>(entry);
-                extract_manager(wad);
+                index_manager(wad);
             }
             continue;
         }
