@@ -48,13 +48,33 @@ std::size_t EntryList::read_toc_size(std::span<char const> src) {
     return header.entry_offset + header.entry_count * header.entry_size;
 }
 
-std::vector<Entry> EntryList::read_entries(std::span<char const> data) {
+std::vector<EntryInfo> EntryList::read_entries(std::span<char const> data) const {
     bt_assert(data.size() >= header.entry_offset + header.entry_count * header.entry_size);
     data = data.subspan(header.entry_offset);
-    auto entries = std::vector<Entry>{};
-    entries.resize(header.entry_count);
-    for (std::size_t i = 0; i != header.entry_count; ++i) {
-        std::memcpy(&entries[i], data.data() + i * header.entry_size, sizeof(Entry));
+    auto results = std::vector<EntryInfo>{};
+    results.reserve(header.entry_count);
+    switch (header.versionMajor) {
+    case 1:
+    case 2:{
+        bt_assert(header.entry_size >= sizeof(Entry));
+        for (std::size_t i = 0; i != header.entry_count; ++i) {
+            Entry entry;
+            std::memcpy(&entry, data.data() + i * header.entry_size, sizeof(Entry));
+            results.emplace_back(entry);
+        }
+    } break;
+    case 3:{
+        bt_assert(header.entry_size >= sizeof(EntryV3));
+        for (std::size_t i = 0; i != header.entry_count; ++i) {
+            EntryV3 entry;
+            std::memcpy(&entry, data.data() + i * header.entry_size, sizeof(EntryV3));
+            std::uint64_t id;
+            std::memcpy(&id, &entry.checksum, sizeof(std::uint64_t));
+            results.emplace_back(entry, id);
+        }
+    } break;
+    default:
+        bt_error("Unsuported wad version!");
     }
-    return entries;
+    return results;
 }

@@ -4,6 +4,7 @@
 #include <span>
 #include <string_view>
 #include <vector>
+#include <optional>
 
 namespace wad {
     struct Header {
@@ -59,11 +60,15 @@ namespace wad {
         std::array<std::uint8_t, 8> checksum;
     };
 
+    struct EntryInfo : Entry {
+        std::optional<std::uint64_t> id = {};
+    };
+
     struct EntryList {
         [[nodiscard]] inline EntryList() = default;
         [[nodiscard]] std::size_t read_header_size(std::span<char const> data);
         [[nodiscard]] std::size_t read_toc_size(std::span<char const> data);
-        [[nodiscard]] std::vector<Entry> read_entries(std::span<char const> data);
+        [[nodiscard]] std::vector<EntryInfo> read_entries(std::span<char const> data) const;
     private:
         HeaderV1 header = {};
     };

@@ -30,10 +30,13 @@ static constexpr auto read_char (std::span<char8_t const>& iter) {
 
 static constexpr auto read_string (std::span<char8_t const>& iter) {
     auto str_len = 0u;
-    while (str_len != iter.size() && iter[str_len] != '\r' && iter[str_len] != '\n') {
+    while (str_len != iter.size() && iter[str_len] != '\n') {
         ++str_len;
     }
     auto result = std::u8string_view { iter.data(), str_len };
+    while (result.ends_with(u8"\r")) {
+        result.remove_suffix(1);
+    }
     iter = iter.subspan(str_len);
     return result;
 }

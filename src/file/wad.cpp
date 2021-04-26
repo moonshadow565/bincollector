@@ -7,7 +7,7 @@
 using namespace file;
 
 struct FileWAD::Reader : IReader {
-    Reader(wad::Entry const& info, std::shared_ptr<IReader> source) :
+    Reader(wad::EntryInfo const& info, std::shared_ptr<IReader> source) :
         info_(info), source_(source)
     {}
 
@@ -15,12 +15,12 @@ struct FileWAD::Reader : IReader {
         return static_cast<std::size_t>(info_.size_uncompressed);
     }
 protected:
-    wad::Entry info_;
+    wad::EntryInfo info_;
     std::shared_ptr<IReader> source_;
 };
 
 struct FileWAD::ReaderUncompressed final : FileWAD::Reader {
-    ReaderUncompressed(wad::Entry const& info, std::shared_ptr<IReader> source) :
+    ReaderUncompressed(wad::EntryInfo const& info, std::shared_ptr<IReader> source) :
         Reader(info, source)
     {}
 
@@ -31,7 +31,7 @@ struct FileWAD::ReaderUncompressed final : FileWAD::Reader {
 };
 
 struct FileWAD::ReaderZSTD final : FileWAD::Reader {
-    ReaderZSTD(wad::Entry const& info, std::shared_ptr<IReader> source) :
+    ReaderZSTD(wad::EntryInfo const& info, std::shared_ptr<IReader> source) :
         Reader(info, source), dctx_(ZSTD_createDCtx(), &ZSTD_freeDCtx)
     {
         bt_trace(u8"path hash: {:016X}", info_.path);
@@ -69,7 +69,7 @@ private:
 };
 
 struct FileWAD::ReaderZLIB final : FileWAD::Reader {
-    ReaderZLIB(wad::Entry const& info, std::shared_ptr<IReader> source) :
+    ReaderZLIB(wad::EntryInfo const& info, std::shared_ptr<IReader> source) :
         Reader(info, source)
     {
         bt_trace(u8"path hash: {:016X}", info_.path);
@@ -110,8 +110,12 @@ private:
     }
 };
 
-FileWAD::FileWAD(wad::Entry const&info, std::shared_ptr<IReader> source)
-    : info_(info), source_(source)
+FileWAD::FileWAD(wad::EntryInfo const&info, std::shared_ptr<IReader> source, std::u8string const& source_id)
+    : info_(info), source_(source), source_id_(source_id)
+{}
+
+FileWAD::FileWAD(wad::EntryInfo const& info, std::shared_ptr<IFile> source)
+    : FileWAD(info, source->open(), source->id())
 {}
 
 std::u8string FileWAD::find_name(HashList& hashes) {
@@ -141,7 +145,7 @@ std::u8string FileWAD::get_link() {
     if (!link_.empty()) {
         return link_;
     }
-    if (info_.type != wad::Entry::Type::FileRedirection) {
+    if (info_.type != wad::EntryInfo::Type::FileRedirection) {
         return {};
     }
     auto const src = source_->read(info_.offset, info_.size_uncompressed);
@@ -154,10 +158,22 @@ std::u8string FileWAD::get_link() {
 }
 
 std::size_t FileWAD::size() const {
-    if (info_.type == wad::Entry::Type::FileRedirection) {
+    if (info_.type == wad::EntryInfo::Type::FileRedirection) {
         return 0;
     }
     return static_cast<std::size_t>(info_.size_uncompressed);
+}
+
+std::u8string FileWAD::id() const {
+    if (info_.type == wad::Entry::Type::FileRedirection) {
+        return {};
+    } else if (info_.id) {
+        return fmt::format(u8"{:016x}.sha", *info_.id);
+    } else if (!source_id_.empty()) {
+        return fmt::format(u8"{}.{:016x}.xxh", source_id_, info_.path);
+    } else {
+        return {};
+    }
 }
 
 std::shared_ptr<IReader> FileWAD::open() {
@@ -165,16 +181,16 @@ std::shared_ptr<IReader> FileWAD::open() {
         return result;
     } else {
         switch (info_.type) {
-        case wad::Entry::Type::FileRedirection:
+        case wad::EntryInfo::Type::FileRedirection:
             bt_error("Links can't be read!");
             break;
-        case wad::Entry::Type::Uncompressed:
+        case wad::EntryInfo::Type::Uncompressed:
             reader_ = bt_rethrow(result = std::make_shared<ReaderUncompressed>(info_, source_));
             break;
-        case wad::Entry::Type::ZStandardCompressed:
+        case wad::EntryInfo::Type::ZStandardCompressed:
             reader_ = bt_rethrow(result = std::make_shared<ReaderZSTD>(info_, source_));
             break;
-        case wad::Entry::Type::ZlibCompressed:
+        case wad::EntryInfo::Type::ZlibCompressed:
             reader_ = bt_rethrow(result = std::make_shared<ReaderZLIB>(info_, source_));
             break;
         default:
@@ -189,19 +205,22 @@ bool FileWAD::is_wad() {
     return false;
 }
 
-ManagerWAD::ManagerWAD(std::shared_ptr<IReader> source) {
+ManagerWAD::ManagerWAD(std::shared_ptr<IFile> source) : ManagerWAD(source->open(), source->id()) {}
+
+ManagerWAD::ManagerWAD(std::shared_ptr<IReader> source, std::u8string const& source_id) {
     auto wad = wad::EntryList{};
     auto const header_size = wad.read_header_size(source->read(0, sizeof(wad::Header)));
     auto const toc_size = wad.read_toc_size(source->read(0, header_size));
     entries_  = wad.read_entries(source->read(0, toc_size));
     source_ = source;
+    source_id_  = source_id;
 }
 
 std::vector<std::shared_ptr<IFile>> ManagerWAD::list() {
     auto result = std::vector<std::shared_ptr<IFile>>{};
     result.reserve(entries_.size());
     for (auto const& entry: entries_) {
-        result.emplace_back(std::make_shared<FileWAD>(entry, source_));
+        result.emplace_back(std::make_shared<FileWAD>(entry, source_, source_id_));
     }
     return result;
 }

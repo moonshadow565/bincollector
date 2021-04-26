@@ -79,6 +79,9 @@ void App::parse_args(int argc, char** argv) {
                 if (value == "extract" || value == "ex") {
                     return Action::Extract;
                 }
+                if (value == "index" || value == "index") {
+                    return Action::Index;
+                }
                 throw std::runtime_error("Unknown action!");
             });
     program.add_argument("manifest")
@@ -121,13 +124,16 @@ void App::run() {
         return list_manager(manager);
     case Action::Extract:
         return extract_manager(manager);
+    case Action::Index:
+        return index_manager(manager);
     }
 }
 
 void App::list_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
         if (entry->is_wad()) {
-            auto wad = std::make_shared<file::ManagerWAD>(entry->open());
+            bt_trace(u8"wad: {}", entry->find_name(hashlist));
+            auto wad = std::make_shared<file::ManagerWAD>(entry);
             list_manager(wad);
             continue;
         }
@@ -137,14 +143,17 @@ void App::list_manager(std::shared_ptr<file::IManager> manager) {
         }
         auto hash = entry->find_hash(hashlist);
         auto name = entry->find_name(hashlist);
-        fmt_print(std::cout, u8"{:016X},{},{}\n", hash, ext, name);
+        auto id = entry->id();
+        auto size = entry->size();
+        fmt_print(std::cout, u8"{:016x},{},{},{},{}\n", hash, ext, name, id, size);
     }
 }
 
 void App::extract_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
         if (entry->is_wad()) {
-            auto wad = std::make_shared<file::ManagerWAD>(entry->open());
+            bt_trace(u8"wad: {}", entry->find_name(hashlist));
+            auto wad = std::make_shared<file::ManagerWAD>(entry);
             extract_manager(wad);
             continue;
         }
@@ -160,8 +169,36 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager) {
         auto name = entry->find_name(hashlist);
         auto out_name = name;
         if (out_name.empty() || out_name.size() > 127) {
-            out_name = fmt::format(u8"{:016X}{}", hash, ext);
+            out_name = fmt::format(u8"{:016x}{}", hash, ext);
         }
         entry->extract_to(fs::path(output) / out_name);
+    }
+}
+
+void App::index_manager(std::shared_ptr<file::IManager> manager) {
+    for (auto const& entry: manager->list()) {
+        if (entry->is_wad()) {
+            bt_trace(u8"wad: {}", entry->find_name(hashlist));
+            auto wad = std::make_shared<file::ManagerWAD>(entry);
+            extract_manager(wad);
+            continue;
+        }
+        auto ext = entry->find_extension(hashlist);
+        if (!extensions.empty() && !extensions.contains(ext)) {
+            continue;
+        }
+        auto link = entry->get_link();
+        if (!link.empty()) {
+            continue;
+        }
+        auto hash = entry->find_hash(hashlist);
+        auto name = entry->find_name(hashlist);
+        auto id = entry->id();
+        auto size = entry->size();
+        fmt_print(std::cout, u8"{:016x},{},{},{},{}\n", hash, ext, name, id, size);
+        auto out_name = fs::path(output) / id;
+        if (!fs::exists(out_name)) {
+            entry->extract_to(fs::path(output) / id);
+        }
     }
 }

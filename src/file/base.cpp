@@ -31,13 +31,15 @@ std::shared_ptr<IManager> IManager::make(fs::path const& src, fs::path const& cd
         return std::make_shared<ManagerRAW>(src);
     }
     auto file = FileRAW::make_reader(src);
-    auto magic = Magic::find(file->read(0, 4));
+    auto magic = Magic::find(file->read(0, std::min(file->size(), std::size_t{16})));
     if (magic == u8".releasemanifest") {
         return std::make_shared<ManagerRLSM>(file, cdn, langs);
+    } else if (magic == u8".solutionmanifest") {
+        return std::make_shared<ManagerSLN>(file, cdn, langs);
     } else if (magic == u8".manifest") {
         return std::make_shared<ManagerRMAN>(file, cdn, langs);
     } else if (magic == u8".wad") {
-        return std::make_shared<ManagerWAD>(file);
+        return std::make_shared<ManagerWAD>(file, u8"");
     } else {
         bt_error("Unrecognized manager format!");
     }

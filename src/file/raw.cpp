@@ -52,6 +52,10 @@ std::size_t FileRAW::size() const {
     return static_cast<std::size_t>(size);
 }
 
+std::u8string FileRAW::id() const {
+    return {};
+}
+
 std::shared_ptr<IReader> FileRAW::open() {
     if (auto result = reader_.lock()) {
         return result;

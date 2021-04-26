@@ -1,5 +1,6 @@
 #include <common/bt_error.hpp>
 #include <common/string.hpp>
+#include <iostream>
 #include "app.hpp"
 
 int main(int argc, char** argv) {
@@ -11,9 +12,9 @@ int main(int argc, char** argv) {
         app.save_hashes();
         return EXIT_SUCCESS;
     } catch (std::runtime_error const& error) {
-        fmt::print("Error: {}\n", error.what());
+        std::cerr << "Error: " <<  error.what() << std::endl;
         for (auto const& entry: bt::error_stack()) {
-            fmt::print("\t{}\n", to_std_string(entry));
+            std::cerr << "\t" << to_std_string(entry) << std::endl;
         }
         bt::error_stack().clear();
         return EXIT_FAILURE;

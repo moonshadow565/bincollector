@@ -42,6 +42,7 @@ namespace file {
         virtual std::u8string find_extension(HashList& hashes) = 0;
         virtual std::u8string get_link() = 0;
         virtual std::size_t size() const = 0;
+        virtual std::u8string id() const = 0;
         virtual std::shared_ptr<IReader> open() = 0;
         virtual bool is_wad() = 0;
 

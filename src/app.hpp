@@ -8,7 +8,8 @@
 struct App {
     enum class Action {
         List,
-        Extract
+        Extract,
+        Index,
     };
 
     App(fs::path src_dir);
@@ -30,5 +31,6 @@ struct App {
 private:
     void list_manager(std::shared_ptr<file::IManager> manager);
     void extract_manager(std::shared_ptr<file::IManager> manager);
+    void index_manager(std::shared_ptr<file::IManager> manager);
 
 };

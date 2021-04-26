@@ -17,6 +17,7 @@ add_executable(bincollector
     src/common/fltbf.hpp
     src/common/fs.hpp
     src/common/magic.hpp
+    src/common/magic.cpp
     src/common/mmap.cpp
     src/common/mmap.hpp
     src/common/string.hpp
@@ -27,6 +28,8 @@ add_executable(bincollector
     src/file/hashlist.hpp
     src/file/raw.cpp
     src/file/raw.hpp
+    src/file/sln/manifest.hpp
+    src/file/sln/manifest.cpp
     src/file/rlsm.cpp
     src/file/rlsm.hpp
     src/file/rlsm/manifest.cpp

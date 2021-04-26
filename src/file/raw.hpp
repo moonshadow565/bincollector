@@ -10,6 +10,7 @@ namespace file {
         std::u8string find_extension(HashList& hashes) override;
         std::u8string get_link() override;
         std::size_t size() const override;
+        std::u8string id() const override;
         std::shared_ptr<IReader> open() override;
         bool is_wad() override;
 

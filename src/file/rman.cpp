@@ -135,6 +135,13 @@ std::size_t FileRMAN::size() const {
     return static_cast<std::size_t>(info_.size);
 }
 
+std::u8string FileRMAN::id() const {
+    if (!info_.link.empty()) {
+        return {};
+    }
+    return fmt::format(u8"{:016x}.fid", info_.id);
+}
+
 std::shared_ptr<IReader> FileRMAN::open() {
     if (auto result = reader_.lock()) {
         return result;
