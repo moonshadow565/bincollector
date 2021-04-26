@@ -152,6 +152,10 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager) {
         if (!extensions.empty() && !extensions.contains(ext)) {
             continue;
         }
+        auto link = entry->get_link();
+        if (!link.empty()) {
+            continue;
+        }
         auto hash = entry->find_hash(hashlist);
         auto name = entry->find_name(hashlist);
         auto out_name = name;
