@@ -33,24 +33,33 @@ static std::set<std::u8string> parse_list(std::string const& value) {
     return result;
 }
 
-App::App(fs::path hash_dir) {
-    if (auto p = hash_dir / u8"hashes" / u8"hashes.game.txt"; fs::exists(p)) {
-        hash_path_names = p;
-        hashlist.read_names_list(p);
-    } else if (auto p = fs::path(u8"./") / u8"hashes.game.txt"; fs::exists(p)) {
-        hash_path_names = p;
-        hashlist.read_names_list(p);
-    } else {
-        hash_path_names = p;
+App::App(fs::path src_dir) : src_dir(src_dir) {}
+
+void App::load_hashes() {
+    if (hash_path_names.empty()) {
+        if (auto p = src_dir / u8"hashes" / u8"hashes.game.txt"; fs::exists(p)) {
+            hash_path_names = p.generic_u8string();
+            puts("Should hit!");
+        } else if (auto p = fs::path(u8"./") / u8"hashes.game.txt"; fs::exists(p)) {
+            hash_path_names = p.generic_u8string();
+        } else {
+            hash_path_names = p.generic_u8string();
+        }
     }
-    if (auto p = hash_dir / u8"hashes" / u8"hashes.game.ext.txt"; fs::exists(p)) {
-        hash_path_extensions = p;
-        hashlist.read_extensions_list(p);
-    } else if (auto p = fs::path(u8"./") / u8"hashes.game.ext.txt"; fs::exists(p)) {
-        hash_path_extensions = p;
-        hashlist.read_extensions_list(p);
-    } else {
-        hash_path_extensions = p;
+    if (hash_path_extensions.empty()) {
+        if (auto p = src_dir / u8"hashes" / u8"hashes.game.ext.txt"; fs::exists(p)) {
+            hash_path_extensions = p.generic_u8string();
+        } else if (auto p = fs::path(u8"./") / u8"hashes.game.ext.txt"; fs::exists(p)) {
+            hash_path_extensions = p.generic_u8string();
+        } else {
+            hash_path_extensions = p.generic_u8string();
+        }
+    }
+    if (fs::exists(hash_path_names)) {
+        hashlist.read_names_list(hash_path_names);
+    }
+    if (fs::exists(hash_path_extensions)) {
+        hashlist.read_extensions_list(hash_path_extensions);
     }
 }
 
@@ -88,6 +97,12 @@ void App::parse_args(int argc, char** argv) {
     program.add_argument("-e", "--ext")
             .help("Filter: extensions with . (dot)")
             .default_value(std::string{});
+    program.add_argument("--hashes-names")
+            .help("File: Hash list for names")
+            .default_value(std::string{});
+    program.add_argument("--hashes-exts")
+            .help("File: Hash list for extensions")
+            .default_value(std::string{});
 
     program.parse_args(argc, argv);
     action = program.get<Action>("action");
@@ -96,6 +111,8 @@ void App::parse_args(int argc, char** argv) {
     output = from_std_string(program.get<std::string>("--output"));
     langs = parse_list(program.get<std::string>("--lang"));
     extensions = parse_list(program.get<std::string>("--ext"));
+    hash_path_names = from_std_string(program.get<std::string>("--hashes-names"));
+    hash_path_extensions = from_std_string(program.get<std::string>("--hashes-exts"));
 }
 
 void App::run() {

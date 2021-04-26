@@ -3,9 +3,10 @@
 #include "app.hpp"
 
 int main(int argc, char** argv) {
+    auto app = App(fs::path(argv[0]).parent_path());
     try {
-        auto app = App(fs::path(argv[0]).parent_path());
         app.parse_args(argc, argv);
+        app.load_hashes();
         app.run();
         app.save_hashes();
         return EXIT_SUCCESS;
