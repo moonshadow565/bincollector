@@ -31,7 +31,7 @@ private:
 };
 
 FileRLSM::FileRLSM(rlsm::FileInfo const& info, fs::path const& base)
-    : info_(info), path_(base / u8"release" / static_cast<std::u8string>(info_.version) / u8"files" / info_.name)
+    : info_(info), path_(base / u8"releases" / static_cast<std::u8string>(info_.version) / u8"files" / info_.name)
 {}
 
 std::u8string FileRLSM::find_name([[maybe_unused]] HashList& hashes) {
