@@ -39,7 +39,6 @@ void App::load_hashes() {
     if (hash_path_names.empty()) {
         if (auto p = src_dir / u8"hashes" / u8"hashes.game.txt"; fs::exists(p)) {
             hash_path_names = p.generic_u8string();
-            puts("Should hit!");
         } else if (auto p = fs::path(u8"./") / u8"hashes.game.txt"; fs::exists(p)) {
             hash_path_names = p.generic_u8string();
         } else {
