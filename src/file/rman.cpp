@@ -1,6 +1,7 @@
 #include <common/bt_error.hpp>
 #include <common/mmap.hpp>
 #include <file/hashlist.hpp>
+#include <file/raw.hpp>
 #include <file/rman.hpp>
 #include <file/rman/manifest.hpp>
 #include <zstd.h>
@@ -144,16 +145,32 @@ std::shared_ptr<IReader> FileRMAN::open() {
     }
 }
 
-IFile::List FileRMAN::list_manifest(rman::RMANManifest const& manifest, fs::path const& cdn) {
-    auto result = List{};
-    auto entries = manifest.list_files();
-    result.reserve(entries.size());
-    for (auto const& entry: entries) {
-        // FIXME: do we want to filter this here
-        if (!entry.langs.contains(u8"none") && !entry.langs.contains(u8"en_us")) {
-            continue;
-        }
-        result.emplace_back(std::make_shared<FileRMAN>(entry, cdn));
+bool FileRMAN::is_wad() {
+    auto const& name = info_.path;
+    return name.ends_with(u8".wad") || name.ends_with(u8".client") || name.ends_with(u8".mobile");
+}
+
+ManagerRMAN::ManagerRMAN(std::shared_ptr<IReader> source, fs::path const& cdn, std::set<std::u8string> const& langs) {
+    auto manifest = rman::RMANManifest::read(source->read());
+    files_ = manifest.list_files();
+    if (!langs.empty()) {
+        std::erase_if(files_, [&langs] (rman::FileInfo const& info) -> bool {
+            for (auto const& lang: langs) {
+                if (info.langs.contains(lang)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+    cdn_ = cdn;
+}
+
+std::vector<std::shared_ptr<IFile>> ManagerRMAN::list() {
+    auto result = std::vector<std::shared_ptr<IFile>>{};
+    result.reserve(files_.size());
+    for (auto const& entry: files_) {
+        result.emplace_back(std::make_shared<FileRMAN>(entry, cdn_));
     }
     return result;
 }

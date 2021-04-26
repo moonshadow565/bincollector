@@ -61,18 +61,25 @@ std::shared_ptr<IReader> FileRAW::open() {
     }
 }
 
-IFile::List FileRAW::list_directory(fs::path const& dir) {
-    auto result = List{};
-    for (auto const& entry: fs::recursive_directory_iterator(dir)) {
-        if (!entry.is_regular_file()) {
-            continue;
-        }
-        auto path = fs::relative(entry.path(), dir).generic_u8string();
-        result.emplace_back(std::make_shared<FileRAW>(path, dir));
-    }
-    return result;
+bool FileRAW::is_wad() {
+    auto const ext = path_.extension().generic_u8string();
+    return ext == u8".wad" || ext == u8".client" || ext == u8".mobile";
 }
 
 std::shared_ptr<IReader> FileRAW::make_reader(fs::path const& path) {
     return std::make_shared<Reader>(path);
+}
+
+ManagerRAW::ManagerRAW(fs::path const& base) : base_(base) {}
+
+std::vector<std::shared_ptr<IFile>> ManagerRAW::list() {
+    auto result = std::vector<std::shared_ptr<IFile>>{};
+    for (auto const& entry: fs::recursive_directory_iterator(base_)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        auto path = fs::relative(entry.path(), base_).generic_u8string();
+        result.emplace_back(std::make_shared<FileRAW>(path, base_));
+    }
+    return result;
 }

@@ -11,13 +11,21 @@ namespace file {
         std::u8string get_link() override;
         std::size_t size() const override;
         std::shared_ptr<IReader> open() override;
+        bool is_wad() override;
 
         static std::shared_ptr<IReader> make_reader(fs::path const& path);
-        static List list_directory(fs::path const& dir);
     private:
         struct Reader;
         std::u8string name_;
         fs::path path_;
         std::weak_ptr<Reader> reader_;
+    };
+
+    struct ManagerRAW : IManager {
+        ManagerRAW(fs::path const& base);
+
+        std::vector<std::shared_ptr<IFile>> list() override;
+    private:
+        fs::path base_;
     };
 }

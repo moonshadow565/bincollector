@@ -1,0 +1,147 @@
+#include <common/bt_error.hpp>
+#include <common/fs.hpp>
+#include <common/mmap.hpp>
+#include <iostream>
+#include "app.hpp"
+#include "argparse.hpp"
+
+
+static std::set<std::u8string> parse_list(std::string const& value) {
+    std::set<std::u8string> result = {};
+    size_t next = 0;
+    size_t end = value.size();
+    auto skip_whitespace = [&](size_t cur) -> size_t {
+        while (cur != end && (value[cur] == ' ' || value[cur] == ',')) {
+            cur++;
+        }
+        return cur;
+    };
+    auto get_next = [&](size_t cur) -> size_t {
+        while (cur != end && (value[cur] != ' ' && value[cur] != ',')) {
+            cur++;
+        }
+        return cur;
+    };
+    while(next != end) {
+        auto start = skip_whitespace(next);
+        next = get_next(start);
+        auto size = next - start;
+        if (size > 0) {
+            result.insert(to_lower(from_std_string(value.substr(start, size))));
+        }
+    }
+    return result;
+}
+
+App::App(fs::path hash_dir) {
+    if (auto p = hash_dir / u8"hashes" / u8"hashes.game.txt"; fs::exists(p)) {
+        hash_path_names = p;
+        hashlist.read_names_list(p);
+    } else if (auto p = fs::path(u8"./") / u8"hashes.game.txt"; fs::exists(p)) {
+        hash_path_names = p;
+        hashlist.read_names_list(p);
+    } else {
+        hash_path_names = p;
+    }
+    if (auto p = hash_dir / u8"hashes" / u8"hashes.game.ext.txt"; fs::exists(p)) {
+        hash_path_extensions = p;
+        hashlist.read_extensions_list(p);
+    } else if (auto p = fs::path(u8"./") / u8"hashes.game.ext.txt"; fs::exists(p)) {
+        hash_path_extensions = p;
+        hashlist.read_extensions_list(p);
+    } else {
+        hash_path_extensions = p;
+    }
+}
+
+void App::save_hashes() {
+    hashlist.write_names_list(hash_path_names);
+    hashlist.write_extensions_list(hash_path_extensions);
+}
+
+void App::parse_args(int argc, char** argv) {
+    argparse::ArgumentParser program("bincollector");
+    program.add_argument("action")
+            .help("action: list, extract")
+            .required()
+            .action([](std::string const& value){
+                if (value == "list" || value == "ls") {
+                    return Action::List;
+                }
+                if (value == "extract" || value == "ex") {
+                    return Action::Extract;
+                }
+                throw std::runtime_error("Unknown action!");
+            });
+    program.add_argument("manifest")
+            .help(".releasemanifest / .manifest / .wad / folder ")
+            .required();
+    program.add_argument("cdn")
+            .help("cdn for manifest and releasemanifest")
+            .default_value(std::string{});
+    program.add_argument("-o", "--output")
+            .help("Output directory for extract")
+            .default_value(std::string{"."});
+    program.add_argument("-l", "--lang")
+            .help("Filter: language(none for international files).")
+            .default_value(std::string{});
+    program.add_argument("-e", "--ext")
+            .help("Filter: extensions with . (dot)")
+            .default_value(std::string{});
+
+    program.parse_args(argc, argv);
+    action = program.get<Action>("action");
+    manifest = from_std_string(program.get<std::string>("manifest"));
+    cdn = from_std_string(program.get<std::string>("cdn"));
+    output = from_std_string(program.get<std::string>("--output"));
+    langs = parse_list(program.get<std::string>("--lang"));
+    extensions = parse_list(program.get<std::string>("--ext"));
+}
+
+void App::run() {
+    auto manager = file::IManager::make(manifest, cdn, langs);
+    switch (action) {
+    case Action::List:
+        return list_manager(manager);
+    case Action::Extract:
+        return extract_manager(manager);
+    }
+}
+
+void App::list_manager(std::shared_ptr<file::IManager> manager) {
+    for (auto const& entry: manager->list()) {
+        if (entry->is_wad()) {
+            auto wad = std::make_shared<file::ManagerWAD>(entry->open());
+            list_manager(wad);
+            continue;
+        }
+        auto ext = entry->find_extension(hashlist);
+        if (!extensions.empty() && !extensions.contains(ext)) {
+            continue;
+        }
+        auto hash = entry->find_hash(hashlist);
+        auto name = entry->find_name(hashlist);
+        fmt_print(std::cout, u8"{:016X},{},{}\n", hash, ext, name);
+    }
+}
+
+void App::extract_manager(std::shared_ptr<file::IManager> manager) {
+    for (auto const& entry: manager->list()) {
+        if (entry->is_wad()) {
+            auto wad = std::make_shared<file::ManagerWAD>(entry->open());
+            extract_manager(wad);
+            continue;
+        }
+        auto ext = entry->find_extension(hashlist);
+        if (!extensions.empty() && !extensions.contains(ext)) {
+            continue;
+        }
+        auto hash = entry->find_hash(hashlist);
+        auto name = entry->find_name(hashlist);
+        auto out_name = name;
+        if (out_name.empty() || out_name.size() > 127) {
+            out_name = fmt::format(u8"{:016X}{}", hash, ext);
+        }
+        entry->extract_to(fs::path(output) / out_name);
+    }
+}

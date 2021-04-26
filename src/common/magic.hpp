@@ -21,6 +21,8 @@ struct Magic {
         { "RW\x01\x00", u8".wad" },
         { "RW\x02\x00", u8".wad" },
         { "RW\x03\x00", u8".wad" },
+        { "RLSM", u8".releasemanifest" },
+        { "RMAN", u8".manifest" },
         { "RST", u8".rst" },
         { "\x00\x00\x01\x00", u8".ico" },
         { "\x47\x49\x46\x38\x37\x61", u8".gif" },
@@ -70,15 +72,13 @@ struct Magic {
         { "\x00\x00\x03\x00\x00\x00\x00\x00", u8".tga"},
         { "\x00\x00\x02\x00\x00\x00\x00\x00", u8".tga"},
         { "\x50\x4B\x03\x04", u8".zip" },
-        { "\x52\x61\x72\x21\x1A\x07", u8".raw" },
+        { "\x52\x61\x72\x21\x1A\x07", u8".rar" },
         { "\x1F\x8B\x08", u8".gz" },
         { "\x75\x73\x74\x61\x72", u8".tar" },
         /*
          * aimesh_ngrid
          * ngrid_overlay
          * rg_overlay
-         * info
-         * legacydirlistinfo
          * ddf
          * cur
          * usm

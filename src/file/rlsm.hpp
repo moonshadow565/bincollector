@@ -12,12 +12,21 @@ namespace file {
         std::u8string get_link() override;
         std::size_t size() const override;
         std::shared_ptr<IReader> open() override;
+        bool is_wad() override;
 
-        static List list_manifest(rlsm::RLSMManifest const& manifest, fs::path const& cdn);
     private:
         struct Reader;
         rlsm::FileInfo info_;
         fs::path path_;
         std::weak_ptr<Reader> reader_;
+    };
+
+    struct ManagerRLSM : IManager {
+        ManagerRLSM(std::shared_ptr<IReader> source, fs::path const& cdn, std::set<std::u8string> const& langs);
+
+        std::vector<std::shared_ptr<IFile>> list() override;
+    private:
+        fs::path base_;
+        std::vector<rlsm::FileInfo> files_;
     };
 }

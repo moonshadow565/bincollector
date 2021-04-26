@@ -3,15 +3,31 @@
 #include <file/rlsm.hpp>
 #include <file/rman.hpp>
 #include <file/wad.hpp>
-#include <unordered_set>
+#include <set>
 
 struct App {
-    file::HashList hashlist = {};
-    std::unordered_set<std::uint64_t> rlsm_done = {};
-    std::unordered_set<rman::FileID> rman_done = {};
-    std::unordered_set<std::uint64_t> wad_done = {};
+    enum class Action {
+        List,
+        Extract
+    };
 
-    void run_list(int argc, char** argv);
-    void run_extract(int argc, char** argv);
-    void run_extract_id(int argc, char** argv);
+    App(fs::path hash_dir);
+    fs::path hash_path_names = {};
+    fs::path hash_path_extensions = {};
+
+    file::HashList hashlist = {};
+    Action action = {};
+    std::u8string manifest = {};
+    std::u8string cdn = {};
+    std::u8string output = {};
+    std::set<std::u8string> langs = {};
+    std::set<std::u8string> extensions = {};
+
+    void parse_args(int argc, char** argv);
+    void run();
+    void save_hashes();
+private:
+    void list_manager(std::shared_ptr<file::IManager> manager);
+    void extract_manager(std::shared_ptr<file::IManager> manager);
+
 };

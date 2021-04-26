@@ -1,6 +1,7 @@
 #include <common/bt_error.hpp>
 #include <common/mmap.hpp>
 #include <file/hashlist.hpp>
+#include <file/raw.hpp>
 #include <file/rlsm.hpp>
 #include <file/rlsm/manifest.hpp>
 
@@ -62,13 +63,23 @@ std::shared_ptr<IReader> FileRLSM::open() {
     }
 }
 
-IFile::List FileRLSM::list_manifest(rlsm::RLSMManifest const& manifest, fs::path const& cdn) {
-    auto result = List{};
-    auto const base = cdn / u8"projects" / manifest.names[manifest.header.project_name];
-    auto entries = manifest.list_files();
-    result.reserve(entries.size());
-    for (auto const& entry: entries) {
-        result.emplace_back(std::make_shared<FileRLSM>(entry, base));
+bool FileRLSM::is_wad() {
+    auto const& name = info_.name;
+    return name.ends_with(u8".wad") || name.ends_with(u8".client") || name.ends_with(u8".mobile");
+}
+
+ManagerRLSM::ManagerRLSM(std::shared_ptr<IReader> source, fs::path const& cdn, std::set<std::u8string> const& langs) {
+    auto manifest = rlsm::RLSMManifest::read(source->read());
+    base_ = cdn / u8"projects" / manifest.names[manifest.header.project_name];
+    files_ = manifest.list_files();
+    (void)langs;
+}
+
+std::vector<std::shared_ptr<IFile>> ManagerRLSM::list() {
+    auto result = std::vector<std::shared_ptr<IFile>>{};
+    result.reserve(files_.size());
+    for (auto const& entry: files_) {
+        result.emplace_back(std::make_shared<FileRLSM>(entry, base_));
     }
     return result;
 }

@@ -185,15 +185,24 @@ std::shared_ptr<IReader> FileWAD::open() {
     }
 }
 
-IFile::List FileWAD::list_wad(std::shared_ptr<IReader> source) {
-    auto result = List{};
+bool FileWAD::is_wad() {
+    return false;
+}
+
+ManagerWAD::ManagerWAD(std::shared_ptr<IReader> source) {
     auto wad = wad::EntryList{};
     auto const header_size = wad.read_header_size(source->read(0, sizeof(wad::Header)));
     auto const toc_size = wad.read_toc_size(source->read(0, header_size));
-    auto entries = wad.read_entries(source->read(0, toc_size));
-    result.reserve(entries.size());
-    for (auto const& entry: entries) {
-        result.emplace_back(std::make_shared<FileWAD>(entry, source));
+    entries_  = wad.read_entries(source->read(0, toc_size));
+    source_ = source;
+}
+
+std::vector<std::shared_ptr<IFile>> ManagerWAD::list() {
+    auto result = std::vector<std::shared_ptr<IFile>>{};
+    result.reserve(entries_.size());
+    for (auto const& entry: entries_) {
+        result.emplace_back(std::make_shared<FileWAD>(entry, source_));
     }
     return result;
 }
+

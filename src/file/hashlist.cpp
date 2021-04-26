@@ -102,14 +102,20 @@ void HashList::write_list(std::unordered_map<std::uint64_t, std::u8string> const
     }
 }
 
+static std::u8string get_extension(fs::path path) {
+    auto result = path.extension().generic_u8string();
+    if (result.empty()) {
+        return u8".";
+    }
+    return result;
+}
+
 void HashList::rebuild_extension_list() {
     for (auto const& [hash, name]: names) {
         if (auto e = extensions.find(hash); e == extensions.end()) {
-            auto ext = fs::path(name).extension().generic_u8string();
-            if (ext.empty()) {
-                ext = u8".";
-            }
+            auto ext = get_extension(name);
             extensions.emplace_hint(e, hash, std::move(ext));
+            extensions_changed = true;
         }
     }
 }
@@ -118,13 +124,12 @@ std::uint64_t HashList::find_hash_by_name(std::u8string name) {
     auto const hash = XXH64(name);
     if (auto n = names.find(hash); n == names.end()) {
         names.emplace_hint(n, hash, name);
+        names_changed = true;
     }
     if (auto e = extensions.find(hash); e == extensions.end()) {
-        auto ext = fs::path(name).extension().generic_u8string();
-        if (ext.empty()) {
-            ext = u8".";
-        }
+        auto ext = get_extension(name);
         extensions.emplace_hint(e, hash, ext);
+        extensions_changed = true;
     }
     return hash;
 }
@@ -140,15 +145,14 @@ std::u8string HashList::find_extension_by_name(std::u8string name) {
     auto const hash = XXH64(name);
     if (auto n = names.find(hash); n == names.end()) {
         names.emplace_hint(n, hash, name);
+        names_changed = true;
     }
     if (auto e = extensions.find(hash); e != extensions.end()) {
         return e->second;
     } else {
-        auto ext = fs::path(name).extension().generic_u8string();
-        if (ext.empty()) {
-            ext = u8".";
-        }
+        auto ext = get_extension(name);
         extensions.emplace_hint(e, hash, ext);
+        extensions_changed = true;
         return ext;
     }
     return {};
@@ -168,6 +172,7 @@ std::u8string HashList::find_extension_by_data(std::uint64_t hash, std::span<cha
         auto ext = std::u8string{Magic::find(data)};
         if (!ext.empty()) {
             extensions.emplace_hint(e, hash, ext);
+            extensions_changed = true;
             return ext;
         }
     }

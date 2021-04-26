@@ -12,8 +12,8 @@ namespace file {
         std::u8string get_link() override;
         std::size_t size() const override;
         std::shared_ptr<IReader> open() override;
+        bool is_wad() override;
 
-        static List list_wad(std::shared_ptr<IReader> source);
     private:
         struct Reader;
         struct ReaderUncompressed;
@@ -24,5 +24,14 @@ namespace file {
         std::shared_ptr<IReader> source_;
         std::weak_ptr<Reader> reader_;
         std::u8string link_;
+    };
+
+    struct ManagerWAD : IManager {
+        ManagerWAD(std::shared_ptr<IReader> source);
+
+        std::vector<std::shared_ptr<IFile>> list() override;
+    private:
+        std::vector<wad::Entry> entries_;
+        std::shared_ptr<IReader> source_;
     };
 }

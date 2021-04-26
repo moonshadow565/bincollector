@@ -11,6 +11,7 @@ add_subdirectory(deps/zstd)
 
 add_executable(bincollector
     src/app.hpp
+    src/app.cpp
     src/common/bt_error.cpp
     src/common/bt_error.hpp
     src/common/fltbf.hpp
@@ -18,6 +19,7 @@ add_executable(bincollector
     src/common/magic.hpp
     src/common/mmap.cpp
     src/common/mmap.hpp
+    src/common/string.hpp
     src/common/xxhash64.hpp
     src/file/base.cpp
     src/file/base.hpp

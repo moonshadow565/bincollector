@@ -21,18 +21,24 @@ namespace file {
             return result;
         }
         inline void write_names_list(fs::path const& path) {
-            write_list(names, path);
+            if (names_changed) {
+                write_list(names, path);
+            }
         }
 
         inline bool read_extensions_list(fs::path const& path) {
             return read_list(extensions, path);
         }
         inline void write_extensions_list(fs::path const& path)  {
-            write_list(extensions, path);
+            if (extensions_changed) {
+                write_list(extensions, path);
+            }
         }
     private:
         std::unordered_map<std::uint64_t, std::u8string> names;
+        bool names_changed = false;
         std::unordered_map<std::uint64_t, std::u8string> extensions;
+        bool extensions_changed = false;
 
         void rebuild_extension_list();
         static bool read_list(std::unordered_map<std::uint64_t, std::u8string>& list, fs::path const& path);

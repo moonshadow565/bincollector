@@ -1,16 +1,17 @@
 #pragma once
-#pragma once
 #include <common/fs.hpp>
+#include <common/string.hpp>
 #include <cinttypes>
 #include <memory>
+#include <set>
 #include <span>
-#include <string>
 #include <vector>
 
 
 namespace file {
     struct HashList;
     struct IFile;
+    struct IManager;
 
     struct IReader {
         inline IReader() = default;
@@ -30,8 +31,6 @@ namespace file {
     };
 
     struct IFile {
-        using List = std::vector<std::shared_ptr<IFile>>;
-
         inline IFile() = default;
         IFile(IFile const&) = delete;
         IFile(IFile&&) = delete;
@@ -44,7 +43,20 @@ namespace file {
         virtual std::u8string get_link() = 0;
         virtual std::size_t size() const = 0;
         virtual std::shared_ptr<IReader> open() = 0;
+        virtual bool is_wad() = 0;
 
-        static List list_path(fs::path const& manifest_path, fs::path const& cdn);
+        void extract_to(fs::path const& file_path);
+    };
+
+    struct IManager {
+        inline IManager() = default;
+        IManager(IManager const&) = delete;
+        IManager(IManager&&) = delete;
+        IManager& operator=(IManager const&) = delete;
+        IManager& operator=(IManager&&) = delete;
+        virtual ~IManager() = 0;
+        virtual std::vector<std::shared_ptr<IFile>> list() = 0;
+
+        static std::shared_ptr<IManager> make(fs::path const& src, fs::path const& cdn, std::set<std::u8string> const& langs);
     };
 }
