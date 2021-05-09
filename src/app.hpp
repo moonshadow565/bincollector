@@ -10,6 +10,7 @@ struct App {
         List,
         Extract,
         Index,
+        ExeVer,
     };
 
     App(fs::path src_dir);
@@ -21,6 +22,7 @@ struct App {
     std::u8string output = {};
     std::set<std::u8string> langs = {};
     std::set<std::u8string> extensions = {};
+    std::set<std::uint64_t> names = {};
     std::u8string hash_path_names = {};
     std::u8string hash_path_extensions = {};
     bool skip_wad = {};
@@ -33,5 +35,6 @@ private:
     void list_manager(std::shared_ptr<file::IManager> manager);
     void extract_manager(std::shared_ptr<file::IManager> manager);
     void index_manager(std::shared_ptr<file::IManager> manager);
+    void exe_ver(std::shared_ptr<file::IManager> manager);
 
 };
