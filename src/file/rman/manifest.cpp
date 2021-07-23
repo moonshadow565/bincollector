@@ -34,8 +34,8 @@ RMANManifest RMANManifest::read(std::span<char const> data) {
         for (auto const& chunk_table : bundle_table[1].as<std::vector<Table>>()) {
             auto &chunk = bundle.chunks.emplace_back();
             chunk.id = chunk_table[0].as<ChunkID>();
-            chunk.compressed_size = chunk_table[1].as<int32_t>();
-            chunk.uncompressed_size = chunk_table[2].as<int32_t>();
+            chunk.compressed_size = chunk_table[1].as<uint32_t>();
+            chunk.uncompressed_size = chunk_table[2].as<uint32_t>();
         }
     }
     for (auto const& lang_table : body_table[1].as<std::vector<Table>>()) {
@@ -51,7 +51,7 @@ RMANManifest RMANManifest::read(std::span<char const> data) {
         auto &file = body.files.emplace_back();
         file.id = file_table[0].as<FileID>();
         file.parent_dir_id = file_table[1].as<DirID>();
-        file.size = file_table[2].as<int32_t>();
+        file.size = file_table[2].as<uint32_t>();
         file.name = file_table[3].as<std::u8string>();
         file.locale_flags = file_table[4].as<uint64_t>();
         file.unk5 = file_table[5].as<uint8_t>();                    // ???, unk size
@@ -85,7 +85,7 @@ std::vector<FileInfo> RMANManifest::list_files() const {
     }
     auto chunk_lookup = std::unordered_map<ChunkID, FileChunk> {};
     for (auto const& bundle: manifest.bundles) {
-        int32_t compressed_offset = 0;
+        uint32_t compressed_offset = 0;
         for (auto const& chunk: bundle.chunks) {
             chunk_lookup[chunk.id] = FileChunk{chunk, bundle.id, compressed_offset, {}};
             compressed_offset += chunk.compressed_size;
@@ -123,7 +123,7 @@ std::vector<FileInfo> RMANManifest::list_files() const {
         if (file_info.langs.empty()) {
             file_info.langs.insert(u8"none");
         }
-        int32_t uncompressed_offset = 0;
+        uint32_t uncompressed_offset = 0;
         file_info.chunks.reserve(file.chunk_ids.size());
         for (auto chunk_id: file.chunk_ids) {
             bt_trace(u8"ChunkID: {:016X}", chunk_id);
@@ -136,13 +136,13 @@ std::vector<FileInfo> RMANManifest::list_files() const {
     return files;
 }
 
-void FileInfo::sanitize(std::int32_t chunkLimit) const {
+void FileInfo::sanitize(std::uint32_t chunkLimit) const {
     auto const& file = *this;
     bt_trace(u8"File id: {:016X}, name: {}", file.id, file.path);
     bt_assert(file.id != FileID::None);
     bt_assert(file.link.empty());
     bt_assert(!file.path.empty());
-    bt_assert(file.path.size() < 256);
+    bt_assert(file.path.size() < 32 * 1024);
     auto path = fs::path(file.path, fs::path::generic_format);
     auto path_normalized = path.lexically_normal().generic_u8string();
     bt_assert(file.path == path_normalized);
@@ -152,10 +152,9 @@ void FileInfo::sanitize(std::int32_t chunkLimit) const {
         bt_assert(!path_component.empty());
         bt_assert(path_component != u8".." && path_component != u8".");
     }
-    bt_assert(file.size > 0);
-    bt_assert(file.size <= (INT32_MAX - chunkLimit));
+    bt_assert(file.size <= (UINT32_MAX - chunkLimit));
     auto const max_compressed = ZSTD_COMPRESSBOUND(chunkLimit);
-    auto next_min_uncompressed_offset = int32_t{0};
+    auto next_min_uncompressed_offset = uint32_t{0};
     for (auto const& chunk: file.chunks) {
         bt_trace(u8"Chunk id: {:016X}", chunk.id);
         bt_assert(chunk.id != ChunkID::None);

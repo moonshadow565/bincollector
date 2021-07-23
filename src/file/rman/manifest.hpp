@@ -48,8 +48,8 @@ namespace rman {
 
     struct RMANChunk {
         ChunkID id;
-        int32_t compressed_size;
-        int32_t uncompressed_size;
+        uint32_t compressed_size;
+        uint32_t uncompressed_size;
     };
 
     struct RMANBundle {
@@ -65,7 +65,7 @@ namespace rman {
     struct RMANFile {
         FileID id;
         DirID parent_dir_id;
-        int32_t size;
+        uint32_t size;
         std::u8string name;
         uint64_t locale_flags;
         uint8_t unk5;
@@ -86,19 +86,19 @@ namespace rman {
 
     struct FileChunk : RMANChunk {
         BundleID bundle_id;
-        int32_t compressed_offset;
-        int32_t uncompressed_offset;
+        uint32_t compressed_offset;
+        uint32_t uncompressed_offset;
     };
 
     struct FileInfo {
         FileID id;
-        int32_t size;
+        uint32_t size;
         std::u8string path;
         std::u8string link;
         std::unordered_set<std::u8string> langs;
         std::vector<FileChunk> chunks;
 
-        void sanitize(std::int32_t chunkLimit = 16 * 1024 * 1024) const;
+        void sanitize(std::uint32_t chunkLimit = 16 * 1024 * 1024) const;
     };
 
     struct RMANManifest {

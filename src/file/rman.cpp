@@ -26,7 +26,7 @@ struct FileRMAN::Reader final : IReader {
         bt_assert(data().size() >= offset + size);
         bt_assert(offset + size == 0 || data_);
         // Get chunks inside specific range, guaranteed to succeed if assert passes
-        auto const chunks = chunks_in_range(static_cast<std::int32_t>(offset), static_cast<std::int32_t>(size));
+        auto const chunks = chunks_in_range(static_cast<std::uint32_t>(offset), static_cast<std::uint32_t>(size));
 
         // Ranges are sorted in order by: BundleID, ChunkID, UncompressedOffset
         auto bundle = MMap<char const>{};
@@ -76,15 +76,15 @@ private:
     rman::FileInfo info_;
     fs::path base_;
     std::unique_ptr<char[]> data_ = {};
-    std::unordered_set<std::int32_t> maped_;
+    std::unordered_set<std::uint32_t> maped_;
 
     std::span<char> data() noexcept {
         return { data_.get(), static_cast<std::size_t>(info_.size) };
     }
 
-    std::vector<rman::FileChunk> chunks_in_range(std::int32_t offset, std::int32_t size) const noexcept {
+    std::vector<rman::FileChunk> chunks_in_range(std::uint32_t offset, std::uint32_t size) const noexcept {
         auto const compare_offset = [](auto const& lhs, auto const& rhs) {
-            if constexpr (std::is_same_v<std::remove_cvref_t<decltype(lhs)>, std::int32_t>) {
+            if constexpr (std::is_same_v<std::remove_cvref_t<decltype(lhs)>, std::uint32_t>) {
                 return lhs < rhs.uncompressed_offset;
             } else {
                 return lhs.uncompressed_offset < rhs;
