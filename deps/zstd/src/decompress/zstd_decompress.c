@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, Yann Collet, Facebook, Inc.
+ * Copyright (c) Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under both the BSD-style license (found in the
@@ -80,7 +80,7 @@
 
 #define DDICT_HASHSET_MAX_LOAD_FACTOR_COUNT_MULT 4
 #define DDICT_HASHSET_MAX_LOAD_FACTOR_SIZE_MULT 3   /* These two constants represent SIZE_MULT/COUNT_MULT load factor without using a float.
-                                                     * Currently, that means a 0.75 load factor. 
+                                                     * Currently, that means a 0.75 load factor.
                                                      * So, if count * COUNT_MULT / size * SIZE_MULT != 0, then we've exceeded
                                                      * the load factor of the ddict hash set.
                                                      */
@@ -337,9 +337,9 @@ void ZSTD_copyDCtx(ZSTD_DCtx* dstDCtx, const ZSTD_DCtx* srcDCtx)
 /* Given a dctx with a digested frame params, re-selects the correct ZSTD_DDict based on
  * the requested dict ID from the frame. If there exists a reference to the correct ZSTD_DDict, then
  * accordingly sets the ddict to be used to decompress the frame.
- * 
+ *
  * If no DDict is found, then no action is taken, and the ZSTD_DCtx::ddict remains as-is.
- * 
+ *
  * ZSTD_d_refMultipleDDicts must be enabled for this function to be called.
  */
 static void ZSTD_DCtx_selectFrameDDict(ZSTD_DCtx* dctx) {
@@ -630,6 +630,7 @@ static size_t ZSTD_decodeFrameHeader(ZSTD_DCtx* dctx, const void* src, size_t he
 #endif
     dctx->validateChecksum = (dctx->fParams.checksumFlag && !dctx->forceIgnoreChecksum) ? 1 : 0;
     if (dctx->validateChecksum) XXH64_reset(&dctx->xxhState, 0);
+    dctx->processedCSize += headerSize;
     return 0;
 }
 
@@ -752,7 +753,7 @@ unsigned long long ZSTD_decompressBound(const void* src, size_t srcSize)
 size_t ZSTD_insertBlock(ZSTD_DCtx* dctx, const void* blockStart, size_t blockSize)
 {
     DEBUGLOG(5, "ZSTD_insertBlock: %u bytes", (unsigned)blockSize);
-    ZSTD_checkContinuity(dctx, blockStart);
+    ZSTD_checkContinuity(dctx, blockStart, blockSize);
     dctx->previousDstEnd = (const char*)blockStart + blockSize;
     return blockSize;
 }
@@ -784,6 +785,32 @@ static size_t ZSTD_setRleBlock(void* dst, size_t dstCapacity,
     return regenSize;
 }
 
+static void ZSTD_DCtx_trace_end(ZSTD_DCtx const* dctx, U64 uncompressedSize, U64 compressedSize, unsigned streaming)
+{
+#if ZSTD_TRACE
+    if (dctx->traceCtx && ZSTD_trace_decompress_end != NULL) {
+        ZSTD_Trace trace;
+        ZSTD_memset(&trace, 0, sizeof(trace));
+        trace.version = ZSTD_VERSION_NUMBER;
+        trace.streaming = streaming;
+        if (dctx->ddict) {
+            trace.dictionaryID = ZSTD_getDictID_fromDDict(dctx->ddict);
+            trace.dictionarySize = ZSTD_DDict_dictSize(dctx->ddict);
+            trace.dictionaryIsCold = dctx->ddictIsCold;
+        }
+        trace.uncompressedSize = (size_t)uncompressedSize;
+        trace.compressedSize = (size_t)compressedSize;
+        trace.dctx = dctx;
+        ZSTD_trace_decompress_end(dctx->traceCtx, &trace);
+    }
+#else
+    (void)dctx;
+    (void)uncompressedSize;
+    (void)compressedSize;
+    (void)streaming;
+#endif
+}
+
 
 /*! ZSTD_decompressFrame() :
  * @dctx must be properly initialized
@@ -793,8 +820,9 @@ static size_t ZSTD_decompressFrame(ZSTD_DCtx* dctx,
                                    void* dst, size_t dstCapacity,
                              const void** srcPtr, size_t *srcSizePtr)
 {
-    const BYTE* ip = (const BYTE*)(*srcPtr);
-    BYTE* const ostart = (BYTE* const)dst;
+    const BYTE* const istart = (const BYTE*)(*srcPtr);
+    const BYTE* ip = istart;
+    BYTE* const ostart = (BYTE*)dst;
     BYTE* const oend = dstCapacity != 0 ? ostart + dstCapacity : ostart;
     BYTE* op = ostart;
     size_t remainingSrcSize = *srcSizePtr;
@@ -869,7 +897,7 @@ static size_t ZSTD_decompressFrame(ZSTD_DCtx* dctx,
         ip += 4;
         remainingSrcSize -= 4;
     }
-
+    ZSTD_DCtx_trace_end(dctx, (U64)(op-ostart), (U64)(ip-istart), /* streaming */ 0);
     /* Allow caller to get size read */
     *srcPtr = ip;
     *srcSizePtr = remainingSrcSize;
@@ -938,7 +966,7 @@ static size_t ZSTD_decompressMultiFrame(ZSTD_DCtx* dctx,
              * use this in all cases but ddict */
             FORWARD_IF_ERROR(ZSTD_decompressBegin_usingDict(dctx, dict, dictSize), "");
         }
-        ZSTD_checkContinuity(dctx, dst);
+        ZSTD_checkContinuity(dctx, dst, dstCapacity);
 
         {   const size_t res = ZSTD_decompressFrame(dctx, dst, dstCapacity,
                                                     &src, &srcSize);
@@ -1073,7 +1101,9 @@ size_t ZSTD_decompressContinue(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, c
     DEBUGLOG(5, "ZSTD_decompressContinue (srcSize:%u)", (unsigned)srcSize);
     /* Sanity check */
     RETURN_ERROR_IF(srcSize != ZSTD_nextSrcSizeToDecompressWithInputSize(dctx, srcSize), srcSize_wrong, "not allowed");
-    if (dstCapacity) ZSTD_checkContinuity(dctx, dst);
+    ZSTD_checkContinuity(dctx, dst, dstCapacity);
+
+    dctx->processedCSize += srcSize;
 
     switch (dctx->stage)
     {
@@ -1178,6 +1208,7 @@ size_t ZSTD_decompressContinue(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, c
                     dctx->expected = 4;
                     dctx->stage = ZSTDds_checkChecksum;
                 } else {
+                    ZSTD_DCtx_trace_end(dctx, dctx->decodedSize, dctx->processedCSize, /* streaming */ 1);
                     dctx->expected = 0;   /* ends here */
                     dctx->stage = ZSTDds_getFrameHeaderSize;
                 }
@@ -1197,6 +1228,7 @@ size_t ZSTD_decompressContinue(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, c
                 DEBUGLOG(4, "ZSTD_decompressContinue: checksum : calculated %08X :: %08X read", (unsigned)h32, (unsigned)check32);
                 RETURN_ERROR_IF(check32 != h32, checksum_wrong, "");
             }
+            ZSTD_DCtx_trace_end(dctx, dctx->decodedSize, dctx->processedCSize, /* streaming */ 1);
             dctx->expected = 0;
             dctx->stage = ZSTDds_getFrameHeaderSize;
             return 0;
@@ -1350,8 +1382,12 @@ static size_t ZSTD_decompress_insertDictionary(ZSTD_DCtx* dctx, const void* dict
 size_t ZSTD_decompressBegin(ZSTD_DCtx* dctx)
 {
     assert(dctx != NULL);
+#if ZSTD_TRACE
+    dctx->traceCtx = (ZSTD_trace_decompress_begin != NULL) ? ZSTD_trace_decompress_begin(dctx) : 0;
+#endif
     dctx->expected = ZSTD_startingInputLength(dctx->format);  /* dctx->format must be properly set */
     dctx->stage = ZSTDds_getFrameHeaderSize;
+    dctx->processedCSize = 0;
     dctx->decodedSize = 0;
     dctx->previousDstEnd = NULL;
     dctx->prefixStart = NULL;

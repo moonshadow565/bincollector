@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, Yann Collet, Facebook, Inc.
+ * Copyright (c) Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under both the BSD-style license (found in the
@@ -120,6 +120,7 @@ struct ZSTD_DCtx_s
     const void* dictEnd;          /* end of previous segment */
     size_t expected;
     ZSTD_frameHeader fParams;
+    U64 processedCSize;
     U64 decodedSize;
     blockType_e bType;            /* used in ZSTD_decompressContinue(), store blockType between block header decoding and block decompression stages */
     ZSTD_dStage stage;
@@ -175,6 +176,11 @@ struct ZSTD_DCtx_s
     void const* dictContentBeginForFuzzing;
     void const* dictContentEndForFuzzing;
 #endif
+
+    /* Tracing */
+#if ZSTD_TRACE
+    ZSTD_TraceCtx traceCtx;
+#endif
 };  /* typedef'd to ZSTD_DCtx within "zstd.h" */
 
 
@@ -193,7 +199,7 @@ size_t ZSTD_loadDEntropy(ZSTD_entropyDTables_t* entropy,
  *  If yes, do nothing (continue on current segment).
  *  If not, classify previous segment as "external dictionary", and start a new segment.
  *  This function cannot fail. */
-void ZSTD_checkContinuity(ZSTD_DCtx* dctx, const void* dst);
+void ZSTD_checkContinuity(ZSTD_DCtx* dctx, const void* dst, size_t dstSize);
 
 
 #endif /* ZSTD_DECOMPRESS_INTERNAL_H */
