@@ -160,10 +160,20 @@ void App::parse_args(int argc, char** argv) {
     program.add_argument("--hashes-exts")
             .help("File: Hash list for extensions")
             .default_value(std::string{});
-    program.add_argument("--skip-wad")
+    program.add_argument("--skip-containers")
             .help("Skip .wad processing")
             .default_value(false)
             .implicit_value(true);
+    program.add_argument("-r", "--show-wads")
+        .help("Show .wad files in dump")
+        .default_value(false)
+        .implicit_value(true);
+    program.add_argument("-d", "--max-depth")
+        .help("Max depth to recurse into.")
+        .default_value(int(0))
+        .action([](std::string value) {
+            return std::stoi(value);
+        });
 
     program.parse_args(argc, argv);
     action = program.get<Action>("action");
@@ -175,22 +185,26 @@ void App::parse_args(int argc, char** argv) {
     extensions = parse_list(program.get<std::string>("--ext"));
     hash_path_names = from_std_string(program.get<std::string>("--hashes-names"));
     hash_path_extensions = from_std_string(program.get<std::string>("--hashes-exts"));
-    skip_wad = program.get<bool>("--skip-wad");
+    show_wads = program.get<bool>("--show-wads");
+    max_depth = program.get<int>("--max-depth");
 }
 
 void App::run() {
     auto manager = file::IManager::make(manifest, cdn, langs);
-    return (this->*action.handler)(manager);
+    return (this->*action.handler)(manager, 1);
 }
 
-void App::list_manager(std::shared_ptr<file::IManager> manager) {
+void App::list_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         bt_trace(u8"location: {}", entry->location()->print(u8";"));
+        std::shared_ptr<file::IReader> reader = nullptr;
         if (entry->is_wad()) {
-            if (!skip_wad) {
-                bt_trace(u8"wad: {}", entry->find_name(hashlist));
+            if (!max_depth || depth < max_depth) {
+                reader = entry->open();
                 auto wad = std::make_shared<file::ManagerWAD>(entry);
-                list_manager(wad);
+                list_manager(wad, depth + 1);
+            }
+            if (!show_wads) {
                 continue;
             }
         }
@@ -209,16 +223,19 @@ void App::list_manager(std::shared_ptr<file::IManager> manager) {
     }
 }
 
-void App::extract_manager(std::shared_ptr<file::IManager> manager) {
+void App::extract_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         bt_trace(u8"location: {}", entry->location()->print(u8";"));
+        std::shared_ptr<file::IReader> reader = nullptr;
         if (entry->is_wad()) {
-            if (!skip_wad) {
-                bt_trace(u8"wad: {}", entry->find_name(hashlist));
+            if (!max_depth || depth < max_depth) {
+                reader = entry->open();
                 auto wad = std::make_shared<file::ManagerWAD>(entry);
-                extract_manager(wad);
+                extract_manager(wad, depth + 1);
             }
-            continue;
+            if (!show_wads) {
+                continue;
+            }
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
@@ -241,16 +258,19 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager) {
     }
 }
 
-void App::index_manager(std::shared_ptr<file::IManager> manager) {
+void App::index_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         bt_trace(u8"location: {}", entry->location()->print(u8";"));
+        std::shared_ptr<file::IReader> reader = nullptr;
         if (entry->is_wad()) {
-            if (!skip_wad) {
-                bt_trace(u8"wad: {}", entry->find_name(hashlist));
+            if (!max_depth || depth < max_depth) {
+                reader = entry->open();
                 auto wad = std::make_shared<file::ManagerWAD>(entry);
-                index_manager(wad);
+                index_manager(wad, depth + 1);
             }
-            continue;
+            if (!show_wads) {
+                continue;
+            }
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
@@ -275,7 +295,7 @@ void App::index_manager(std::shared_ptr<file::IManager> manager) {
     }
 }
 
-void App::exe_ver(std::shared_ptr<file::IManager> manager) {
+void App::exe_ver(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         bt_trace(u8"location: {}", entry->location()->print(u8";"));
         auto ext = entry->find_extension(hashlist);
@@ -294,28 +314,32 @@ void App::exe_ver(std::shared_ptr<file::IManager> manager) {
     }
 }
 
-void App::checksum_manager(std::shared_ptr<file::IManager> manager) {
+void App::checksum_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         auto location = entry->location()->print(u8";");
         bt_trace(u8"location: {}", location);
-        std::shared_ptr<file::IReader> reader = entry->open();
-        do {
-            auto ext = entry->find_extension(hashlist);
-            if (!extensions.empty() && !extensions.contains(ext)) {
+        std::shared_ptr<file::IReader> reader = nullptr;
+        if (entry->is_wad()) {
+            if (!max_depth || depth < max_depth) {
+                reader = entry->open();
+                auto wad = std::make_shared<file::ManagerWAD>(entry);
+                checksum_manager(wad, depth + 1);
+            }
+            if (!show_wads) {
                 continue;
             }
-            auto hash = entry->find_hash(hashlist);
-            if (!names.empty() && !names.contains(hash)) {
-                continue;
-            }
-            auto name = entry->find_name(hashlist);
-            auto id = entry->id();
-            auto size = entry->size();
-            fmt_print(std::cout, u8"{:016x},{},{},{},{},{}\n", hash, ext, name, id, size, location);
-        } while(false);
-        if (!skip_wad && entry->is_wad()) {
-            auto wad = std::make_shared<file::ManagerWAD>(entry);
-            checksum_manager(wad);
         }
+        auto ext = entry->find_extension(hashlist);
+        if (!extensions.empty() && !extensions.contains(ext)) {
+            continue;
+        }
+        auto hash = entry->find_hash(hashlist);
+        if (!names.empty() && !names.contains(hash)) {
+            continue;
+        }
+        auto name = entry->find_name(hashlist);
+        auto id = entry->id();
+        auto size = entry->size();
+        fmt_print(std::cout, u8"{:016x},{},{},{},{},{}\n", hash, ext, name, id, size, location);
     }
 }

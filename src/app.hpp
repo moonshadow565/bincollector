@@ -7,7 +7,7 @@
 
 struct App {
     struct Action {
-        void (App::* handler)(std::shared_ptr<file::IManager>);
+        void (App::* handler)(std::shared_ptr<file::IManager>, int depth);
         std::string_view long_name;
         std::optional<std::string_view> short_name = std::nullopt;
         bool has_hashes = true;
@@ -25,18 +25,19 @@ struct App {
     std::set<std::uint64_t> names = {};
     std::u8string hash_path_names = {};
     std::u8string hash_path_extensions = {};
-    bool skip_wad = {};
+    int max_depth = {};
+    bool show_wads = {};
 
     void parse_args(int argc, char** argv);
     void load_hashes();
     void run();
     void save_hashes();
 private:
-    void checksum_manager(std::shared_ptr<file::IManager> manager);
-    void list_manager(std::shared_ptr<file::IManager> manager);
-    void extract_manager(std::shared_ptr<file::IManager> manager);
-    void index_manager(std::shared_ptr<file::IManager> manager);
-    void exe_ver(std::shared_ptr<file::IManager> manager);
+    void checksum_manager(std::shared_ptr<file::IManager> manager, int depth);
+    void list_manager(std::shared_ptr<file::IManager> manager, int depth);
+    void extract_manager(std::shared_ptr<file::IManager> manager, int depth);
+    void index_manager(std::shared_ptr<file::IManager> manager, int depth);
+    void exe_ver(std::shared_ptr<file::IManager> manager, int depth);
 
     static inline constexpr Action ACTIONS[] = {
         { &App::list_manager, "list", "ls", true },
