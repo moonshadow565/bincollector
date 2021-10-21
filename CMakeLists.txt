@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+add_subdirectory(deps/digestpp)
 add_subdirectory(deps/fmt)
 #add_subdirectory(deps/miniz)
 add_subdirectory(deps/zstd)
@@ -47,5 +48,5 @@ add_executable(bincollector
     src/file/wad/wad.hpp
     src/main.cpp
     )
-target_link_libraries(bincollector PRIVATE zstd fmt zlib)
+target_link_libraries(bincollector PRIVATE digestpp zstd fmt zlib)
 target_include_directories(bincollector PRIVATE src/)

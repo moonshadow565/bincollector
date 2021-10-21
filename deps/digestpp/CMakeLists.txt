@@ -1,0 +1,65 @@
+cmake_minimum_required(VERSION 3.15)
+
+project(digestpp)
+
+add_library(digestpp INTERFACE
+    src/algorithm/blake2.hpp
+    src/algorithm/blake.hpp
+    src/algorithm/detail/blake2_provider.hpp
+    src/algorithm/detail/blake_provider.hpp
+    src/algorithm/detail/constants/blake2_constants.hpp
+    src/algorithm/detail/constants/blake_constants.hpp
+    src/algorithm/detail/constants/groestl_constants.hpp
+    src/algorithm/detail/constants/jh_constants.hpp
+    src/algorithm/detail/constants/kupyna_constants.hpp
+    src/algorithm/detail/constants/md5_constants.hpp
+    src/algorithm/detail/constants/sha1_constants.hpp
+    src/algorithm/detail/constants/sha2_constants.hpp
+    src/algorithm/detail/constants/sha3_constants.hpp
+    src/algorithm/detail/constants/skein_constants.hpp
+    src/algorithm/detail/constants/streebog_constants.hpp
+    src/algorithm/detail/constants/whirlpool_constants.hpp
+    src/algorithm/detail/groestl_provider.hpp
+    src/algorithm/detail/jh_provider.hpp
+    src/algorithm/detail/k12m14_provider.hpp
+    src/algorithm/detail/kmac_provider.hpp
+    src/algorithm/detail/kupyna_provider.hpp
+    src/algorithm/detail/md5_provider.hpp
+    src/algorithm/detail/sha1_provider.hpp
+    src/algorithm/detail/sha2_provider.hpp
+    src/algorithm/detail/sha3_provider.hpp
+    src/algorithm/detail/shake_provider.hpp
+    src/algorithm/detail/skein_provider.hpp
+    src/algorithm/detail/sm3_provider.hpp
+    src/algorithm/detail/streebog_provider.hpp
+    src/algorithm/detail/whirlpool_provider.hpp
+    src/algorithm/groestl.hpp
+    src/algorithm/jh.hpp
+    src/algorithm/k12m14.hpp
+    src/algorithm/kmac.hpp
+    src/algorithm/kupyna.hpp
+    src/algorithm/md5.hpp
+    src/algorithm/mixin/blake2_mixin.hpp
+    src/algorithm/mixin/blake_mixin.hpp
+    src/algorithm/mixin/cshake_mixin.hpp
+    src/algorithm/mixin/k12m14_mixin.hpp
+    src/algorithm/mixin/kmac_mixin.hpp
+    src/algorithm/mixin/null_mixin.hpp
+    src/algorithm/mixin/skein_mixin.hpp
+    src/algorithm/sha1.hpp
+    src/algorithm/sha2.hpp
+    src/algorithm/sha3.hpp
+    src/algorithm/shake.hpp
+    src/algorithm/skein.hpp
+    src/algorithm/sm3.hpp
+    src/algorithm/streebog.hpp
+    src/algorithm/whirlpool.hpp
+    src/detail/absorb_data.hpp
+    src/detail/functions.hpp
+    src/detail/stream_width_fixer.hpp
+    src/detail/traits.hpp
+    src/detail/validate_hash_size.hpp
+    src/digestpp.hpp
+    src/hasher.hpp
+)
+target_include_directories(digestpp INTERFACE src)
