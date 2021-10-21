@@ -164,7 +164,7 @@ void App::parse_args(int argc, char** argv) {
             .help("Skip .wad processing")
             .default_value(false)
             .implicit_value(true);
-    program.add_argument("-r", "--show-wads")
+    program.add_argument("-w", "--show-wads")
         .help("Show .wad files in dump")
         .default_value(false)
         .implicit_value(true);
