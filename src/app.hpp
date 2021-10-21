@@ -27,6 +27,7 @@ struct App {
     std::u8string hash_path_extensions = {};
     int max_depth = {};
     bool show_wads = {};
+    bool skip_root = {};
 
     void parse_args(int argc, char** argv);
     void load_hashes();

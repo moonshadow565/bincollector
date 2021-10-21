@@ -160,8 +160,8 @@ void App::parse_args(int argc, char** argv) {
     program.add_argument("--hashes-exts")
             .help("File: Hash list for extensions")
             .default_value(std::string{});
-    program.add_argument("--skip-containers")
-            .help("Skip .wad processing")
+    program.add_argument("--skip-root")
+            .help("Skip processing files in root.")
             .default_value(false)
             .implicit_value(true);
     program.add_argument("-w", "--show-wads")
@@ -185,8 +185,9 @@ void App::parse_args(int argc, char** argv) {
     extensions = parse_list(program.get<std::string>("--ext"));
     hash_path_names = from_std_string(program.get<std::string>("--hashes-names"));
     hash_path_extensions = from_std_string(program.get<std::string>("--hashes-exts"));
-    show_wads = program.get<bool>("--show-wads");
     max_depth = program.get<int>("--max-depth");
+    show_wads = program.get<bool>("--show-wads");
+    skip_root = program.get<bool>("--skip-root");
 }
 
 void App::run() {
@@ -207,6 +208,9 @@ void App::list_manager(std::shared_ptr<file::IManager> manager, int depth) {
             if (!show_wads) {
                 continue;
             }
+        }
+        if (depth == 1 && skip_root) {
+            continue;
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
@@ -236,6 +240,9 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager, int depth) {
             if (!show_wads) {
                 continue;
             }
+        }
+        if (depth == 1 && skip_root) {
+            continue;
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
@@ -271,6 +278,9 @@ void App::index_manager(std::shared_ptr<file::IManager> manager, int depth) {
             if (!show_wads) {
                 continue;
             }
+        }
+        if (depth == 1 && skip_root) {
+            continue;
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
@@ -328,6 +338,9 @@ void App::checksum_manager(std::shared_ptr<file::IManager> manager, int depth) {
             if (!show_wads) {
                 continue;
             }
+        }
+        if (depth == 1 && skip_root) {
+            continue;
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
