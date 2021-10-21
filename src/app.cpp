@@ -289,3 +289,27 @@ void App::exe_ver(std::shared_ptr<file::IManager> manager) {
         fmt_print(std::cout, u8"{},{}\n", name, version);
     }
 }
+
+void App::checksum_manager(std::shared_ptr<file::IManager> manager) {
+    for (auto const& entry: manager->list()) {
+        std::shared_ptr<file::IReader> reader = entry->open();
+        do {
+            auto ext = entry->find_extension(hashlist);
+            if (!extensions.empty() && !extensions.contains(ext)) {
+                continue;
+            }
+            auto hash = entry->find_hash(hashlist);
+            if (!names.empty() && !names.contains(hash)) {
+                continue;
+            }
+            auto name = entry->find_name(hashlist);
+            auto id = entry->id();
+            auto size = entry->size();
+            fmt_print(std::cout, u8"{:016x},{},{},{},{}\n", hash, ext, name, id, size);
+        } while(false);
+        if (!skip_wad && entry->is_wad()) {
+            auto wad = std::make_shared<file::ManagerWAD>(entry);
+            list_manager(wad);
+        }
+    }
+}

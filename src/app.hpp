@@ -32,6 +32,7 @@ struct App {
     void run();
     void save_hashes();
 private:
+    void checksum_manager(std::shared_ptr<file::IManager> manager);
     void list_manager(std::shared_ptr<file::IManager> manager);
     void extract_manager(std::shared_ptr<file::IManager> manager);
     void index_manager(std::shared_ptr<file::IManager> manager);
@@ -42,5 +43,6 @@ private:
         { &App::extract_manager, "extract", "ex", true },
         { &App::index_manager, "index", std::nullopt, true },
         { &App::exe_ver, "exever", std::nullopt, false },
+        { &App::checksum_manager, "checksum", std::nullopt, true },
     };
 };
