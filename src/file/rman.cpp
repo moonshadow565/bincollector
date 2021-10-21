@@ -173,7 +173,7 @@ ManagerRMAN::ManagerRMAN(std::shared_ptr<IReader> source,
     , location_(std::make_shared<Location>(source_location))
 {
     auto manifest = rman::RMANManifest::read(source->read());
-    location_->path = fmt::format(u8":016x}.manifest", manifest.id);
+    location_->path = fmt::format(u8"{:016x}.manifest", manifest.id);
     files_ = manifest.list_files();
     if (!langs.empty()) {
         std::erase_if(files_, [&langs] (rman::FileInfo const& info) -> bool {
