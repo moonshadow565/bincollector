@@ -58,6 +58,6 @@ namespace file {
         virtual ~IManager() = 0;
         virtual std::vector<std::shared_ptr<IFile>> list() = 0;
 
-        static std::shared_ptr<IManager> make(fs::path const& src, fs::path const& cdn, std::set<std::u8string> const& langs);
+        static std::shared_ptr<IManager> make(fs::path src, fs::path cdn, std::set<std::u8string> const& langs);
     };
 }

@@ -23,10 +23,13 @@ void IFile::extract_to(fs::path const& file_path) {
     std::memcpy(out_file.data(), in_data.data(), in_data.size());
 }
 
-std::shared_ptr<IManager> IManager::make(fs::path const& src, fs::path const& cdn, std::set<std::u8string> const& langs) {
+std::shared_ptr<IManager> IManager::make(fs::path src, fs::path cdn, std::set<std::u8string> const& langs) {
     bt_trace(u8"src: {}", src.generic_u8string());
     bt_trace(u8"cdn: {}", cdn.generic_u8string());
     bt_assert(fs::exists(src));
+    bt_assert(fs::exists(cdn));
+    src = fs::absolute(src).lexically_normal();
+    cdn = fs::absolute(cdn).lexically_normal();
     if (fs::is_directory(src)) {
         return std::make_shared<ManagerRAW>(src);
     }
@@ -39,7 +42,13 @@ std::shared_ptr<IManager> IManager::make(fs::path const& src, fs::path const& cd
     } else if (magic == u8".manifest") {
         return std::make_shared<ManagerRMAN>(file, cdn, langs);
     } else if (magic == u8".wad") {
-        return std::make_shared<ManagerWAD>(file, u8"");
+        std::u8string relative_wad_path = src.lexically_proximate(cdn).generic_u8string();
+        bt_trace(u8"relative_wad_path: {}", relative_wad_path);
+        bt_assert(relative_wad_path.find(u8"..") == std::u8string::npos);
+        bt_assert(!relative_wad_path.empty());
+        auto file_relative = std::make_shared<FileRAW>(relative_wad_path, cdn);
+        file = nullptr;
+        return std::make_shared<ManagerWAD>(file_relative);
     } else {
         bt_error("Unrecognized manager format!");
     }

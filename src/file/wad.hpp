@@ -31,7 +31,6 @@ namespace file {
 
     struct ManagerWAD : IManager {
         ManagerWAD(std::shared_ptr<IFile> source);
-        ManagerWAD(std::shared_ptr<IReader> source, std::u8string const& source_id);
 
         std::vector<std::shared_ptr<IFile>> list() override;
     private:

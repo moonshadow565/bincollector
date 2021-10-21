@@ -206,15 +206,14 @@ bool FileWAD::is_wad() {
     return false;
 }
 
-ManagerWAD::ManagerWAD(std::shared_ptr<IFile> source) : ManagerWAD(source->open(), source->id()) {}
-
-ManagerWAD::ManagerWAD(std::shared_ptr<IReader> source, std::u8string const& source_id) {
+ManagerWAD::ManagerWAD(std::shared_ptr<IFile> source) {
+    auto reader = source->open();
     auto wad = wad::EntryList{};
-    auto const header_size = wad.read_header_size(source->read(0, sizeof(wad::Header)));
-    auto const toc_size = wad.read_toc_size(source->read(0, header_size));
-    entries_  = wad.read_entries(source->read(0, toc_size));
-    source_ = source;
-    source_id_  = source_id;
+    auto const header_size = wad.read_header_size(reader->read(0, sizeof(wad::Header)));
+    auto const toc_size = wad.read_toc_size(reader->read(0, header_size));
+    entries_  = wad.read_entries(reader->read(0, toc_size));
+    source_ = reader;
+    source_id_  = source->id();
 }
 
 std::vector<std::shared_ptr<IFile>> ManagerWAD::list() {

@@ -140,8 +140,8 @@ void App::parse_args(int argc, char** argv) {
             .help(".releasemanifest / .manifest / .wad / folder ")
             .required();
     program.add_argument("cdn")
-            .help("cdn for manifest and releasemanifest")
-            .default_value(std::string{});
+            .help("cdn for manifest and releasemanifest (for raw wad files this is root of game folder)")
+            .required();
     program.add_argument("-o", "--output")
             .help("Output directory for extract")
             .default_value(std::string{"."});
