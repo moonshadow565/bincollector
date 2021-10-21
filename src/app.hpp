@@ -6,11 +6,11 @@
 #include <set>
 
 struct App {
-    enum class Action {
-        List,
-        Extract,
-        Index,
-        ExeVer,
+    struct Action {
+        void (App::* handler)(std::shared_ptr<file::IManager>);
+        std::string_view long_name;
+        std::optional<std::string_view> short_name = std::nullopt;
+        bool has_hashes = true;
     };
 
     App(fs::path src_dir);
@@ -37,4 +37,10 @@ private:
     void index_manager(std::shared_ptr<file::IManager> manager);
     void exe_ver(std::shared_ptr<file::IManager> manager);
 
+    static inline constexpr Action ACTIONS[] = {
+        { &App::list_manager, "list", "ls", true },
+        { &App::extract_manager, "extract", "ex", true },
+        { &App::index_manager, "index", std::nullopt, true },
+        { &App::exe_ver, "exever", std::nullopt, false },
+    };
 };

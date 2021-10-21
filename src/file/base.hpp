@@ -13,6 +13,10 @@ namespace file {
     struct IFile;
     struct IManager;
 
+    struct MultiHash {
+
+    };
+
     struct IReader {
         inline IReader() = default;
         IReader(IFile const&) = delete;

@@ -81,7 +81,7 @@ static std::u8string get_version(std::span<char const> data) noexcept {
 App::App(fs::path src_dir) : src_dir(src_dir) {}
 
 void App::load_hashes() {
-    if (action == Action::ExeVer) {
+    if (!action.has_hashes) {
         return;
     }
     if (hash_path_names.empty()) {
@@ -111,7 +111,7 @@ void App::load_hashes() {
 }
 
 void App::save_hashes() {
-    if (action == Action::ExeVer) {
+    if (!action.has_hashes) {
         return;
     }
     hashlist.write_names_list(hash_path_names);
@@ -119,22 +119,20 @@ void App::save_hashes() {
 }
 
 void App::parse_args(int argc, char** argv) {
+    std::string valid_actions = "";
+    for (auto const& action: ACTIONS) {
+        valid_actions += action.long_name;
+        valid_actions += ", ";
+    }
     argparse::ArgumentParser program("bincollector");
     program.add_argument("action")
-            .help("action: list, extract, index, exever")
+            .help("action: " + valid_actions)
             .required()
             .action([](std::string const& value){
-                if (value == "list" || value == "ls") {
-                    return Action::List;
-                }
-                if (value == "extract" || value == "ex") {
-                    return Action::Extract;
-                }
-                if (value == "index") {
-                    return Action::Index;
-                }
-                if (value == "exever") {
-                    return Action::ExeVer;
+                for (auto const& action: ACTIONS) {
+                    if (action.long_name == value || (action.short_name && action.short_name == value)) {
+                        return action;
+                    }
                 }
                 throw std::runtime_error("Unknown action!");
             });
@@ -182,16 +180,7 @@ void App::parse_args(int argc, char** argv) {
 
 void App::run() {
     auto manager = file::IManager::make(manifest, cdn, langs);
-    switch (action) {
-    case Action::List:
-        return list_manager(manager);
-    case Action::Extract:
-        return extract_manager(manager);
-    case Action::Index:
-        return index_manager(manager);
-    case Action::ExeVer:
-        return exe_ver(manager);
-    }
+    return (this->*action.handler)(manager);
 }
 
 void App::list_manager(std::shared_ptr<file::IManager> manager) {
