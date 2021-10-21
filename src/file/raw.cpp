@@ -25,8 +25,10 @@ private:
     MMap<char const> data_;
 };
 
-FileRAW::FileRAW(std::u8string const& name, fs::path const& base)
-    : name_(name), path_(base / name)
+FileRAW::FileRAW(std::u8string const& name, fs::path const& base, std::shared_ptr<Location> source_location)
+    : name_(name)
+    , path_(base / name)
+    , location_(std::make_shared<Location>(source_location, name))
 {}
 
 std::u8string FileRAW::find_name([[maybe_unused]] HashList& hashes) {
@@ -56,6 +58,10 @@ std::u8string FileRAW::id() const {
     return {};
 }
 
+std::shared_ptr<Location> FileRAW::location() const {
+    return location_;
+}
+
 std::shared_ptr<IReader> FileRAW::open() {
     if (auto result = reader_.lock()) {
         return result;
@@ -74,7 +80,10 @@ std::shared_ptr<IReader> FileRAW::make_reader(fs::path const& path) {
     return std::make_shared<Reader>(path);
 }
 
-ManagerRAW::ManagerRAW(fs::path const& base) : base_(base) {}
+ManagerRAW::ManagerRAW(fs::path const& base, std::shared_ptr<Location> source_location)
+    : base_(base)
+    , location_(source_location)
+{}
 
 std::vector<std::shared_ptr<IFile>> ManagerRAW::list() {
     auto result = std::vector<std::shared_ptr<IFile>>{};
@@ -83,7 +92,7 @@ std::vector<std::shared_ptr<IFile>> ManagerRAW::list() {
             continue;
         }
         auto path = fs::relative(entry.path(), base_).generic_u8string();
-        result.emplace_back(std::make_shared<FileRAW>(path, base_));
+        result.emplace_back(std::make_shared<FileRAW>(path, base_, location_));
     }
     return result;
 }

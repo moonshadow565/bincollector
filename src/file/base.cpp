@@ -9,6 +9,18 @@
 
 using namespace file;
 
+std::u8string Location::print(std::u8string_view separator) {
+    std::u8string result = {};
+    if (source_location) {
+        result = source_location->print(separator);
+    }
+    if (!result.empty()) {
+        result += separator;
+    }
+    result += path.generic_u8string();
+    return result;
+}
+
 IFile::~IFile() = default;
 IReader::~IReader() = default;
 IManager::~IManager() = default;
@@ -23,30 +35,54 @@ void IFile::extract_to(fs::path const& file_path) {
     std::memcpy(out_file.data(), in_data.data(), in_data.size());
 }
 
+
+
 std::shared_ptr<IManager> IManager::make(fs::path src, fs::path cdn, std::set<std::u8string> const& langs) {
     bt_trace(u8"src: {}", src.generic_u8string());
     bt_trace(u8"cdn: {}", cdn.generic_u8string());
     bt_assert(fs::exists(src));
-    bt_assert(fs::exists(cdn));
-    src = fs::absolute(src).lexically_normal();
-    cdn = fs::absolute(cdn).lexically_normal();
+    src = fs::absolute(src);
     if (fs::is_directory(src)) {
-        return std::make_shared<ManagerRAW>(src);
+        return std::make_shared<ManagerRAW>(src, nullptr);
     }
     auto file = FileRAW::make_reader(src);
     auto magic = Magic::find(file->read(0, std::min(file->size(), std::size_t{16})));
     if (magic == u8".releasemanifest") {
-        return std::make_shared<ManagerRLSM>(file, cdn, langs);
+        if (cdn.empty()) {
+            //    <.> <version>     "releases"    <project>     "projects"    <realm>
+            cdn = src.parent_path().parent_path().parent_path().parent_path().parent_path();
+        }
+        bt_assert(fs::exists(cdn));
+        cdn = fs::absolute(cdn);
+        return std::make_shared<ManagerRLSM>(file, cdn, langs, nullptr);
     } else if (magic == u8".solutionmanifest") {
-        return std::make_shared<ManagerSLN>(file, cdn, langs);
+        if (cdn.empty()) {
+            //    <.> <version>     "releases"    <solution>    "projects"    <realm>
+            cdn = src.parent_path().parent_path().parent_path().parent_path().parent_path();
+        }
+        bt_assert(fs::exists(cdn));
+        cdn = fs::absolute(cdn);
+        return std::make_shared<ManagerSLN>(file, cdn, langs, nullptr);
     } else if (magic == u8".manifest") {
-        return std::make_shared<ManagerRMAN>(file, cdn, langs);
+        if (cdn.empty()) {
+            //    <.> "releases"    <channel>
+            cdn = src.parent_path().parent_path();
+        }
+        bt_assert(fs::exists(cdn));
+        cdn = fs::absolute(cdn);
+        return std::make_shared<ManagerRMAN>(file, cdn, langs, nullptr);
     } else if (magic == u8".wad") {
+        if (cdn.empty()) {
+            //    <.>
+            cdn = src.parent_path();
+        }
+        bt_assert(fs::exists(cdn));
+        cdn = fs::absolute(cdn);
         std::u8string relative_wad_path = src.lexically_proximate(cdn).generic_u8string();
         bt_trace(u8"relative_wad_path: {}", relative_wad_path);
         bt_assert(relative_wad_path.find(u8"..") == std::u8string::npos);
         bt_assert(!relative_wad_path.empty());
-        auto file_relative = std::make_shared<FileRAW>(relative_wad_path, cdn);
+        auto file_relative = std::make_shared<FileRAW>(relative_wad_path, cdn, nullptr);
         file = nullptr;
         return std::make_shared<ManagerWAD>(file_relative);
     } else {

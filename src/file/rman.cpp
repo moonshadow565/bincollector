@@ -102,8 +102,12 @@ private:
     }
 };
 
-FileRMAN::FileRMAN(rman::FileInfo const&info, fs::path const &base)
-    : info_(info), base_(base)
+FileRMAN::FileRMAN(rman::FileInfo const&info,
+                   fs::path const &base,
+                   std::shared_ptr<Location> source_location)
+    : info_(info)
+    , base_(base)
+    , location_(std::make_shared<Location>(source_location, info_.path))
 {}
 
 std::u8string FileRMAN::find_name([[maybe_unused]] HashList& hashes) {
@@ -142,6 +146,10 @@ std::u8string FileRMAN::id() const {
     return fmt::format(u8"{:016x}.fid", info_.id);
 }
 
+std::shared_ptr<Location> FileRMAN::location() const {
+    return location_;
+}
+
 std::shared_ptr<IReader> FileRMAN::open() {
     if (auto result = reader_.lock()) {
         return result;
@@ -157,8 +165,15 @@ bool FileRMAN::is_wad() {
     return name.ends_with(u8".wad") || name.ends_with(u8".client") || name.ends_with(u8".mobile");
 }
 
-ManagerRMAN::ManagerRMAN(std::shared_ptr<IReader> source, fs::path const& cdn, std::set<std::u8string> const& langs) {
+ManagerRMAN::ManagerRMAN(std::shared_ptr<IReader> source,
+                         fs::path const& cdn,
+                         std::set<std::u8string> const& langs,
+                         std::shared_ptr<Location> source_location)
+    : cdn_(cdn)
+    , location_(std::make_shared<Location>(source_location))
+{
     auto manifest = rman::RMANManifest::read(source->read());
+    location_->path = fmt::format(u8":016x}.manifest", manifest.id);
     files_ = manifest.list_files();
     if (!langs.empty()) {
         std::erase_if(files_, [&langs] (rman::FileInfo const& info) -> bool {
@@ -170,14 +185,13 @@ ManagerRMAN::ManagerRMAN(std::shared_ptr<IReader> source, fs::path const& cdn, s
             return true;
         });
     }
-    cdn_ = cdn;
 }
 
 std::vector<std::shared_ptr<IFile>> ManagerRMAN::list() {
     auto result = std::vector<std::shared_ptr<IFile>>{};
     result.reserve(files_.size());
     for (auto const& entry: files_) {
-        result.emplace_back(std::make_shared<FileRMAN>(entry, cdn_));
+        result.emplace_back(std::make_shared<FileRMAN>(entry, cdn_, location_));
     }
     return result;
 }

@@ -3,7 +3,9 @@
 
 namespace file {
     struct FileRAW final : IFile {
-        FileRAW(std::u8string const& name, fs::path const& base);
+        FileRAW(std::u8string const& name,
+                fs::path const& base,
+                std::shared_ptr<Location> source_location);
 
         std::u8string find_name(HashList& hashes) override;
         std::uint64_t find_hash(HashList& hashes) override;
@@ -11,6 +13,7 @@ namespace file {
         std::u8string get_link() override;
         std::size_t size() const override;
         std::u8string id() const override;
+        std::shared_ptr<Location> location() const override;
         std::shared_ptr<IReader> open() override;
         bool is_wad() override;
 
@@ -19,14 +22,16 @@ namespace file {
         struct Reader;
         std::u8string name_;
         fs::path path_;
+        std::shared_ptr<Location>  location_;
         std::weak_ptr<Reader> reader_;
     };
 
     struct ManagerRAW : IManager {
-        ManagerRAW(fs::path const& base);
+        ManagerRAW(fs::path const& base, std::shared_ptr<Location> source_location = nullptr);
 
         std::vector<std::shared_ptr<IFile>> list() override;
     private:
         fs::path base_;
+        std::shared_ptr<Location> location_;
     };
 }

@@ -4,7 +4,10 @@
 
 namespace file {
     struct FileWAD final : IFile {
-        FileWAD(wad::EntryInfo const& info, std::shared_ptr<IReader> source, std::u8string const& source_id);
+        FileWAD(wad::EntryInfo const& info,
+                std::shared_ptr<IReader> source,
+                std::u8string const& source_id,
+                std::shared_ptr<Location> location);
         FileWAD(wad::EntryInfo const& info, std::shared_ptr<IFile> source);
 
         std::u8string find_name(HashList& hashes) override;
@@ -13,6 +16,7 @@ namespace file {
         std::u8string get_link() override;
         std::size_t size() const override;
         std::u8string id() const override;
+        std::shared_ptr<Location> location() const override;
         std::shared_ptr<IReader> open() override;
         bool is_wad() override;
 
@@ -27,15 +31,20 @@ namespace file {
         std::weak_ptr<Reader> reader_;
         std::u8string link_;
         std::u8string source_id_;
+        std::shared_ptr<Location> location_;
     };
 
     struct ManagerWAD : IManager {
         ManagerWAD(std::shared_ptr<IFile> source);
+        ManagerWAD(std::shared_ptr<IReader> source,
+                   std::u8string const& source_id,
+                   std::shared_ptr<Location> source_location);
 
         std::vector<std::shared_ptr<IFile>> list() override;
     private:
         std::vector<wad::EntryInfo> entries_;
         std::shared_ptr<IReader> source_;
+        std::shared_ptr<Location> location_;
         std::u8string source_id_;
     };
 }

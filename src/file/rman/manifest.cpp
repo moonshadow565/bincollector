@@ -27,6 +27,7 @@ RMANManifest RMANManifest::read(std::span<char const> data) {
     auto flatbuffer = Offset { dst.get(), 0, static_cast<int32_t>(header.size_uncompressed) };
 
     auto body = RMANManifest{};
+    std::memcpy(&body.id, header.checksum.data(), sizeof(body.id));
     auto body_table = flatbuffer.as<Table>();
     for (auto const& bundle_table : body_table[0].as<std::vector<Table>>()) {
         auto &bundle = body.bundles.emplace_back();

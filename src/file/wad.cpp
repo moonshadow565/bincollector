@@ -111,12 +111,18 @@ private:
     }
 };
 
-FileWAD::FileWAD(wad::EntryInfo const&info, std::shared_ptr<IReader> source, std::u8string const& source_id)
-    : info_(info), source_(source), source_id_(source_id)
+FileWAD::FileWAD(wad::EntryInfo const& info,
+                 std::shared_ptr<IReader> source,
+                 std::u8string const& source_id,
+                 std::shared_ptr<Location> source_location)
+    : info_(info)
+    , source_(source)
+    , source_id_(source_id)
+    , location_(std::make_shared<Location>(source_location, fmt::format(u8"{:016x}", info.path)))
 {}
 
 FileWAD::FileWAD(wad::EntryInfo const& info, std::shared_ptr<IFile> source)
-    : FileWAD(info, source->open(), source->id())
+    : FileWAD(info, source->open(), source->id(), source->location())
 {}
 
 std::u8string FileWAD::find_name(HashList& hashes) {
@@ -177,6 +183,10 @@ std::u8string FileWAD::id() const {
     }
 }
 
+std::shared_ptr<Location> FileWAD::location() const {
+    return location_;
+}
+
 std::shared_ptr<IReader> FileWAD::open() {
     if (auto result = reader_.lock()) {
         return result;
@@ -206,21 +216,28 @@ bool FileWAD::is_wad() {
     return false;
 }
 
-ManagerWAD::ManagerWAD(std::shared_ptr<IFile> source) {
-    auto reader = source->open();
+ManagerWAD::ManagerWAD(std::shared_ptr<IFile> source)
+    : ManagerWAD(source->open(), source->id(), source->location())
+{}
+
+ManagerWAD::ManagerWAD(std::shared_ptr<IReader> source,
+                       std::u8string const& source_id,
+                       std::shared_ptr<Location> source_location)
+    : source_(source)
+    , source_id_(source_id)
+    , location_(source_location)
+{
     auto wad = wad::EntryList{};
-    auto const header_size = wad.read_header_size(reader->read(0, sizeof(wad::Header)));
-    auto const toc_size = wad.read_toc_size(reader->read(0, header_size));
-    entries_  = wad.read_entries(reader->read(0, toc_size));
-    source_ = reader;
-    source_id_  = source->id();
+    auto const header_size = wad.read_header_size(source_->read(0, sizeof(wad::Header)));
+    auto const toc_size = wad.read_toc_size(source_->read(0, header_size));
+    entries_  = wad.read_entries(source_->read(0, toc_size));
 }
 
 std::vector<std::shared_ptr<IFile>> ManagerWAD::list() {
     auto result = std::vector<std::shared_ptr<IFile>>{};
     result.reserve(entries_.size());
     for (auto const& entry: entries_) {
-        result.emplace_back(std::make_shared<FileWAD>(entry, source_, source_id_));
+        result.emplace_back(std::make_shared<FileWAD>(entry, source_, source_id_, location_));
     }
     return result;
 }

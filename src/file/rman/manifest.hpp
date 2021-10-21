@@ -102,6 +102,7 @@ namespace rman {
     };
 
     struct RMANManifest {
+        uint64_t id;
         std::vector<RMANBundle> bundles;
         std::vector<RMANLang> langs;
         std::vector<RMANFile> files;

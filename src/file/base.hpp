@@ -13,6 +13,13 @@ namespace file {
     struct IFile;
     struct IManager;
 
+    struct Location {
+        std::shared_ptr<Location> source_location;
+        fs::path path;
+
+        std::u8string print(std::u8string_view separator = u8";");
+    };
+
     struct IReader {
         inline IReader() = default;
         IReader(IFile const&) = delete;
@@ -43,6 +50,7 @@ namespace file {
         virtual std::u8string get_link() = 0;
         virtual std::size_t size() const = 0;
         virtual std::u8string id() const = 0;
+        virtual std::shared_ptr<Location> location() const = 0;
         virtual std::shared_ptr<IReader> open() = 0;
         virtual bool is_wad() = 0;
 

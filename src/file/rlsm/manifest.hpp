@@ -12,6 +12,9 @@ namespace rlsm {
         inline operator std::u8string() const {
             return fmt::format(u8"{}.{}.{}.{}", raw[3], raw[2], raw[1], raw[0]);
         }
+        inline std::u8string string() const {
+            return *this;
+        }
     };
 
     struct RLSMHeader {

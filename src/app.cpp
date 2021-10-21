@@ -141,7 +141,7 @@ void App::parse_args(int argc, char** argv) {
             .required();
     program.add_argument("cdn")
             .help("cdn for manifest and releasemanifest (for raw wad files this is root of game folder)")
-            .required();
+            .default_value(std::string{});
     program.add_argument("-o", "--output")
             .help("Output directory for extract")
             .default_value(std::string{"."});
@@ -185,6 +185,7 @@ void App::run() {
 
 void App::list_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
+        bt_trace(u8"location: {}", entry->location()->print(u8";"));
         if (entry->is_wad()) {
             if (!skip_wad) {
                 bt_trace(u8"wad: {}", entry->find_name(hashlist));
@@ -210,6 +211,7 @@ void App::list_manager(std::shared_ptr<file::IManager> manager) {
 
 void App::extract_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
+        bt_trace(u8"location: {}", entry->location()->print(u8";"));
         if (entry->is_wad()) {
             if (!skip_wad) {
                 bt_trace(u8"wad: {}", entry->find_name(hashlist));
@@ -241,6 +243,7 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager) {
 
 void App::index_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
+        bt_trace(u8"location: {}", entry->location()->print(u8";"));
         if (entry->is_wad()) {
             if (!skip_wad) {
                 bt_trace(u8"wad: {}", entry->find_name(hashlist));
@@ -274,6 +277,7 @@ void App::index_manager(std::shared_ptr<file::IManager> manager) {
 
 void App::exe_ver(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
+        bt_trace(u8"location: {}", entry->location()->print(u8";"));
         auto ext = entry->find_extension(hashlist);
         if (ext != u8".exe") {
             continue;
@@ -292,6 +296,8 @@ void App::exe_ver(std::shared_ptr<file::IManager> manager) {
 
 void App::checksum_manager(std::shared_ptr<file::IManager> manager) {
     for (auto const& entry: manager->list()) {
+        auto location = entry->location()->print(u8";");
+        bt_trace(u8"location: {}", location);
         std::shared_ptr<file::IReader> reader = entry->open();
         do {
             auto ext = entry->find_extension(hashlist);
@@ -305,11 +311,11 @@ void App::checksum_manager(std::shared_ptr<file::IManager> manager) {
             auto name = entry->find_name(hashlist);
             auto id = entry->id();
             auto size = entry->size();
-            fmt_print(std::cout, u8"{:016x},{},{},{},{}\n", hash, ext, name, id, size);
+            fmt_print(std::cout, u8"{:016x},{},{},{},{},{}\n", hash, ext, name, id, size, location);
         } while(false);
         if (!skip_wad && entry->is_wad()) {
             auto wad = std::make_shared<file::ManagerWAD>(entry);
-            list_manager(wad);
+            checksum_manager(wad);
         }
     }
 }
