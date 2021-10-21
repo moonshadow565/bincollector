@@ -6,6 +6,8 @@
 #include <file/rlsm.hpp>
 #include <file/rman.hpp>
 #include <file/wad.hpp>
+#include <digestpp.hpp>
+#include <hasher.hpp>
 
 using namespace file;
 
@@ -21,8 +23,23 @@ std::u8string Location::print(std::u8string_view separator) {
     return result;
 }
 
+std::u8string Checksums::print(std::u8string_view key_separator, std::u8string_view list_separator) {
+    std::u8string result;
+    for (auto const& [key, value]: list) {
+        if (!result.empty()) {
+            result += list_separator;
+        }
+        result += key;
+        result += key_separator;
+        result.insert(result.end(), value.begin(), value.end());
+    }
+    return result;
+}
+
 IFile::~IFile() = default;
+
 IReader::~IReader() = default;
+
 IManager::~IManager() = default;
 
 void IFile::extract_to(fs::path const& file_path) {
@@ -35,6 +52,14 @@ void IFile::extract_to(fs::path const& file_path) {
     std::memcpy(out_file.data(), in_data.data(), in_data.size());
 }
 
+Checksums IFile::checksums() {
+    auto reader = open();
+    auto results = Checksums{};
+    auto const data = reader->read();
+    results.list[u8"md5"] = digestpp::md5().absorb(data.data(), data.size()).hexdigest();
+    results.list[u8"sha1"] = digestpp::sha1().absorb(data.data(), data.size()).hexdigest();
+    return results;
+}
 
 
 std::shared_ptr<IManager> IManager::make(fs::path src, fs::path cdn, std::set<std::u8string> const& langs) {

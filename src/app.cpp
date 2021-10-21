@@ -337,9 +337,12 @@ void App::checksum_manager(std::shared_ptr<file::IManager> manager, int depth) {
         if (!names.empty() && !names.contains(hash)) {
             continue;
         }
+        auto checksums = entry->checksums().print();
         auto name = entry->find_name(hashlist);
         auto id = entry->id();
         auto size = entry->size();
-        fmt_print(std::cout, u8"{:016x},{},{},{},{},{}\n", hash, ext, name, id, size, location);
+        fmt_print(std::cout,
+                  u8"{:016x},{},{},{},{},{},{}\n",
+                  hash, ext, name, id, size, checksums, location);
     }
 }

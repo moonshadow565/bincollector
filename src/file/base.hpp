@@ -3,6 +3,7 @@
 #include <common/string.hpp>
 #include <cinttypes>
 #include <memory>
+#include <map>
 #include <set>
 #include <span>
 #include <vector>
@@ -18,6 +19,11 @@ namespace file {
         fs::path path;
 
         std::u8string print(std::u8string_view separator = u8";");
+    };
+    struct Checksums {
+        std::map<std::u8string, std::string> list;
+
+        std::u8string print(std::u8string_view key_separator = u8":", std::u8string_view list_separator = u8";");
     };
 
     struct IReader {
@@ -53,6 +59,7 @@ namespace file {
         virtual std::shared_ptr<Location> location() const = 0;
         virtual std::shared_ptr<IReader> open() = 0;
         virtual bool is_wad() = 0;
+        Checksums checksums();
 
         void extract_to(fs::path const& file_path);
     };
