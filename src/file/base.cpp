@@ -53,11 +53,15 @@ void IFile::extract_to(fs::path const& file_path) {
 }
 
 Checksums IFile::checksums() {
-    auto reader = open();
     auto results = Checksums{};
-    auto const data = reader->read();
-    results.list[u8"md5"] = digestpp::md5().absorb(data.data(), data.size()).hexdigest();
-    results.list[u8"sha1"] = digestpp::sha1().absorb(data.data(), data.size()).hexdigest();
+    if (auto link = get_link(); link.empty()) {
+        auto reader = open();
+        auto const data = reader->read();
+        results.list[u8"md5"] = digestpp::md5().absorb(data.data(), data.size()).hexdigest();
+        results.list[u8"sha1"] = digestpp::sha1().absorb(data.data(), data.size()).hexdigest();
+    } else {
+        results.list[u8"link"] = {link.begin(), link.end()};
+    }
     return results;
 }
 

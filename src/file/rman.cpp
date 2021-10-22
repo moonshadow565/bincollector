@@ -1,10 +1,11 @@
+#include <zstd.h>
+
 #include <common/bt_error.hpp>
 #include <common/mmap.hpp>
 #include <file/hashlist.hpp>
 #include <file/raw.hpp>
 #include <file/rman.hpp>
 #include <file/rman/manifest.hpp>
-#include <zstd.h>
 
 using namespace file;
 
@@ -161,6 +162,9 @@ std::shared_ptr<IReader> FileRMAN::open() {
 }
 
 bool FileRMAN::is_wad() {
+    if (!info_.link.empty()) {
+        return false;
+    }
     auto const& name = info_.path;
     return name.ends_with(u8".wad") || name.ends_with(u8".client") || name.ends_with(u8".mobile");
 }
