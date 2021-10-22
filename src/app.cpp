@@ -198,6 +198,10 @@ void App::run() {
 void App::list_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         bt_trace(u8"location: {}", entry->location()->print(u8";"));
+        auto hash = entry->find_hash(hashlist);
+        if (!names.empty() && !names.contains(hash)) {
+            continue;
+        }
         std::shared_ptr<file::IReader> reader = nullptr;
         if (entry->is_wad()) {
             if (!max_depth || depth < max_depth) {
@@ -216,10 +220,6 @@ void App::list_manager(std::shared_ptr<file::IManager> manager, int depth) {
         if (!extensions.empty() && !extensions.contains(ext)) {
             continue;
         }
-        auto hash = entry->find_hash(hashlist);
-        if (!names.empty() && !names.contains(hash)) {
-            continue;
-        }
         auto name = entry->find_name(hashlist);
         auto id = entry->id();
         auto size = entry->size();
@@ -230,6 +230,10 @@ void App::list_manager(std::shared_ptr<file::IManager> manager, int depth) {
 void App::extract_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         bt_trace(u8"location: {}", entry->location()->print(u8";"));
+        auto hash = entry->find_hash(hashlist);
+        if (!names.empty() && !names.contains(hash)) {
+            continue;
+        }
         std::shared_ptr<file::IReader> reader = nullptr;
         if (entry->is_wad()) {
             if (!max_depth || depth < max_depth) {
@@ -252,10 +256,6 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager, int depth) {
         if (!link.empty()) {
             continue;
         }
-        auto hash = entry->find_hash(hashlist);
-        if (!names.empty() && !names.contains(hash)) {
-            continue;
-        }
         auto name = entry->find_name(hashlist);
         auto out_name = name;
         if (out_name.empty() || out_name.size() > 127) {
@@ -268,6 +268,10 @@ void App::extract_manager(std::shared_ptr<file::IManager> manager, int depth) {
 void App::index_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         bt_trace(u8"location: {}", entry->location()->print(u8";"));
+        auto hash = entry->find_hash(hashlist);
+        if (!names.empty() && !names.contains(hash)) {
+            continue;
+        }
         std::shared_ptr<file::IReader> reader = nullptr;
         if (entry->is_wad()) {
             if (!max_depth || depth < max_depth) {
@@ -288,10 +292,6 @@ void App::index_manager(std::shared_ptr<file::IManager> manager, int depth) {
         }
         auto link = entry->get_link();
         if (!link.empty()) {
-            continue;
-        }
-        auto hash = entry->find_hash(hashlist);
-        if (!names.empty() && !names.contains(hash)) {
             continue;
         }
         auto name = entry->find_name(hashlist);
@@ -328,6 +328,10 @@ void App::checksum_manager(std::shared_ptr<file::IManager> manager, int depth) {
     for (auto const& entry: manager->list()) {
         auto location = entry->location()->print(u8";");
         bt_trace(u8"location: {}", location);
+        auto hash = entry->find_hash(hashlist);
+        if (!names.empty() && !names.contains(hash)) {
+            continue;
+        }
         std::shared_ptr<file::IReader> reader = nullptr;
         if (entry->is_wad()) {
             if (!max_depth || depth < max_depth) {
@@ -344,10 +348,6 @@ void App::checksum_manager(std::shared_ptr<file::IManager> manager, int depth) {
         }
         auto ext = entry->find_extension(hashlist);
         if (!extensions.empty() && !extensions.contains(ext)) {
-            continue;
-        }
-        auto hash = entry->find_hash(hashlist);
-        if (!names.empty() && !names.contains(hash)) {
             continue;
         }
         auto checksums = entry->checksums().print();
