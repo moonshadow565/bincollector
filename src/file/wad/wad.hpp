@@ -43,13 +43,15 @@ namespace wad {
             Uncompressed,
             ZlibCompressed,
             FileRedirection,
-            ZStandardCompressed
+            ZStandardCompressed,
+            ZStandardCompressedMultiFrame,
         };
         std::uint64_t path;
         std::uint32_t offset;
         std::uint32_t size_compressed;
         std::uint32_t size_uncompressed;
-        Type type;
+        Type type : 4;
+        std::uint8_t subchunks : 4;
         std::uint8_t pad[3];
 
         void extract(std::span<char const> src, std::span<char> dst) const noexcept;

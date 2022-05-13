@@ -199,6 +199,7 @@ std::shared_ptr<IReader> FileWAD::open() {
             reader_ = bt_rethrow(result = std::make_shared<ReaderUncompressed>(info_, source_));
             break;
         case wad::EntryInfo::Type::ZStandardCompressed:
+        case wad::EntryInfo::Type::ZStandardCompressedMultiFrame:
             reader_ = bt_rethrow(result = std::make_shared<ReaderZSTD>(info_, source_));
             break;
         case wad::EntryInfo::Type::ZlibCompressed:
