@@ -1,6 +1,7 @@
 #include <common/bt_error.hpp>
 #include <common/fs.hpp>
 #include <common/fltbf.hpp>
+#include <common/sha2.hpp>
 #include <file/rman/manifest.hpp>
 #include <algorithm>
 #include <unordered_map>
@@ -171,3 +172,80 @@ void FileInfo::sanitize(std::uint32_t chunkLimit) const {
     }
 }
 
+RBUNBundle RBUNBundle::read(std::span<char const> src_data) {
+    bt_assert(src_data.size() >= sizeof(RBUNFooter));
+    RBUNFooter footer = {};
+    std::memcpy(&footer, &src_data.end()[-sizeof(RBUNFooter)], sizeof(RBUNFooter));
+    bt_assert(footer.magic == std::array{ u8'R', u8'B', u8'U', u8'N'});
+    bt_assert(footer.unk_1 == 1);
+    auto const chunks_total_size = footer.chunk_count * sizeof(RBUNChunk);
+    bt_assert(chunks_total_size <= src_data.size() - sizeof(RBUNFooter));
+    auto chunks = std::vector<RBUNChunk>((size_t)footer.chunk_count);
+    std::memcpy(chunks.data(), &src_data.end()[-(sizeof(RBUNFooter) + chunks_total_size)], chunks_total_size);
+    return RBUNBundle { std::bit_cast<BundleID>(footer.id_raw), std::move(chunks) };
+}
+
+using namespace sha2;
+
+static void RITO_HKDF(uint8_t const* src, size_t size, uint8_t* output) noexcept {
+    auto ctx = SHA256_CTX {};
+    auto key = std::array<uint8_t, 64>{};
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, src, size);
+    SHA256_Final(key.data(), &ctx);
+    auto ipad = key;
+    for (auto& p: ipad) {
+        p ^= 0x36u;
+    }
+    auto opad = key;
+    for (auto& p: opad) {
+        p ^= 0x5Cu;
+    }
+    auto buffer = std::array<uint8_t, 32> {};
+    auto index = std::array<uint8_t, 4>{0x00, 0x00, 0x00, 0x01};
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, ipad.data(), ipad.size());
+    SHA256_Update(&ctx, index.data(), index.size());
+    SHA256_Final(buffer.data(), &ctx);
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, opad.data(), opad.size());
+    SHA256_Update(&ctx, buffer.data(), buffer.size());
+    SHA256_Final(buffer.data(), &ctx);
+    auto result = buffer;
+    for (uint32_t rounds = 31; rounds; rounds--) {
+        SHA256_Init(&ctx);
+        SHA256_Update(&ctx, ipad.data(), ipad.size());
+        SHA256_Update(&ctx, buffer.data(), buffer.size());
+        SHA256_Final(buffer.data(), &ctx);
+        SHA256_Init(&ctx);
+        SHA256_Update(&ctx, opad.data(), opad.size());
+        SHA256_Update(&ctx, buffer.data(), buffer.size());
+        SHA256_Final(buffer.data(), &ctx);
+        for (size_t i = 0; i != 8; ++i) {
+            result[i] ^= buffer[i];
+        }
+    }
+    for (size_t i = 0; i != 8; ++i) {
+        output[i] = result[i];
+    }
+}
+
+ChunkID rman::chunk_hash(std::span<char const> data, HashType type) noexcept {
+    std::array<uint8_t, 64> output = {};
+    ChunkID result = {};
+    switch (type) {
+    case HashType::None:
+        return {};
+    case HashType::SHA512:
+        SHA512((uint8_t const*)data.data(), data.size(), output.data());
+        break;
+    case HashType::SHA256:
+        SHA256((uint8_t const*)data.data(), data.size(), output.data());
+        break;
+    case HashType::RITO_HKDF:
+        RITO_HKDF((uint8_t const*)data.data(), data.size(), output.data());
+        break;
+    }
+    std::memcpy(&result, &output, sizeof(ChunkID));
+    return result;
+}

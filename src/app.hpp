@@ -20,6 +20,7 @@ struct App {
     std::u8string manifest = {};
     std::u8string cdn = {};
     std::u8string output = {};
+    std::u8string remote = {};
     std::set<std::u8string> langs = {};
     std::set<std::u8string> extensions = {};
     std::set<std::uint64_t> names = {};

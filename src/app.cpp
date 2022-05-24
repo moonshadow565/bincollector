@@ -142,6 +142,9 @@ void App::parse_args(int argc, char** argv) {
     program.add_argument("cdn")
             .help("cdn for manifest and releasemanifest (for raw wad files this is root of game folder)")
             .default_value(std::string{});
+    program.add_argument("-r", "--remote")
+            .help("Input: remote http mirror to fetch files from(only works for .manifest files).")
+            .default_value(std::string{});
     program.add_argument("-o", "--output")
             .help("Output directory for extract")
             .default_value(std::string{"."});
@@ -179,6 +182,7 @@ void App::parse_args(int argc, char** argv) {
     action = program.get<Action>("action");
     manifest = from_std_string(program.get<std::string>("manifest"));
     cdn = from_std_string(program.get<std::string>("cdn"));
+    remote = from_std_string(program.get<std::string>("--remote"));
     output = from_std_string(program.get<std::string>("--output"));
     langs = parse_list(program.get<std::string>("--lang"));
     names = parse_hash_list(program.get<std::string>("--path"));
@@ -191,7 +195,7 @@ void App::parse_args(int argc, char** argv) {
 }
 
 void App::run() {
-    auto manager = file::IManager::make(manifest, cdn, langs);
+    auto manager = file::IManager::make(manifest, cdn, remote, langs);
     return (this->*action.handler)(manager, 1);
 }
 

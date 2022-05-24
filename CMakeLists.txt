@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+find_package (CURL)
+find_package (Threads REQUIRED)
+
 add_subdirectory(deps/digestpp)
 add_subdirectory(deps/fmt)
 #add_subdirectory(deps/miniz)
@@ -24,6 +27,7 @@ add_executable(bincollector
     src/common/magic.cpp
     src/common/mmap.cpp
     src/common/mmap.hpp
+    src/common/sha2.hpp
     src/common/string.hpp
     src/common/xxhash64.hpp
     src/file/base.cpp
@@ -50,3 +54,4 @@ add_executable(bincollector
     )
 target_link_libraries(bincollector PRIVATE digestpp zstd fmt zlib)
 target_include_directories(bincollector PRIVATE src/)
+target_link_libraries(bincollector PRIVATE CURL::libcurl)

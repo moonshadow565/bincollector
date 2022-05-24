@@ -3,9 +3,11 @@
 #include <file/rman/manifest.hpp>
 
 namespace file {
+    struct CacheRMAN;
+
     struct FileRMAN final : IFile {
         FileRMAN(rman::FileInfo const& info,
-                 fs::path const& base,
+                 std::shared_ptr<CacheRMAN> cache,
                  std::shared_ptr<Location> location);
 
         std::u8string find_name(HashList& hashes) override;
@@ -21,20 +23,21 @@ namespace file {
     private:
         struct Reader;
         rman::FileInfo info_;
-        fs::path base_;
+        std::shared_ptr<CacheRMAN> cache_;
         std::weak_ptr<Reader> reader_;
         std::shared_ptr<Location> location_;
     };
 
     struct ManagerRMAN : IManager {
         ManagerRMAN(std::shared_ptr<IReader> source,
-                    fs::path const& cdn,
+                    fs::path cdn,
+                    std::u8string remote,
                     std::set<std::u8string> const& langs,
                     std::shared_ptr<Location> source_location);
 
         std::vector<std::shared_ptr<IFile>> list() override;
     private:
-        fs::path cdn_;
+        std::shared_ptr<CacheRMAN> cache_;
         std::shared_ptr<Location> location_;
         std::vector<rman::FileInfo> files_;
     };

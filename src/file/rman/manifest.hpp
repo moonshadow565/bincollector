@@ -36,6 +36,28 @@ namespace rman {
         RITO_HKDF,
     };
 
+    extern ChunkID chunk_hash(std::span<char const> data, HashType type) noexcept;
+
+    struct RBUNChunk {
+        ChunkID id;
+        uint32_t uncompressed_size;
+        uint32_t compressed_size;
+    };
+
+    struct RBUNFooter {
+        std::array<char, 8> id_raw;
+        uint32_t chunk_count;
+        uint32_t unk_1;
+        std::array<char8_t, 4> magic;
+    };
+
+    struct RBUNBundle {
+        BundleID id;
+        std::vector<RBUNChunk> chunks;
+
+        static RBUNBundle read(std::span<char const> src_data);
+    };
+
     struct RMANHeader {
         std::array<char8_t, 4> magic;
         uint8_t version_major;
@@ -52,6 +74,7 @@ namespace rman {
         uint32_t compressed_size;
         uint32_t uncompressed_size;
     };
+
 
     struct RMANBundle {
         BundleID id;

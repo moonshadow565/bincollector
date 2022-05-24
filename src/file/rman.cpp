@@ -6,12 +6,159 @@
 #include <file/raw.hpp>
 #include <file/rman.hpp>
 #include <file/rman/manifest.hpp>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <curl/curl.h>
 
 using namespace file;
 
+struct file::CacheRMAN final  {
+    CacheRMAN(fs::path cdn, std::u8string remote) : cdn_(std::move(cdn)), remote_(std::move(remote)) {
+        bt_assert(!cdn_.empty());
+
+        auto cdn_str = cdn_.generic_u8string();
+        std::transform(cdn_str.begin(), cdn_str.end(), cdn_str.begin(), ::tolower);
+        while (cdn_str.ends_with(u8'/') || cdn_str.ends_with(u8'\\')) cdn_str.pop_back();
+
+        if (cdn_str.ends_with(u8"chunks")) {
+            is_chunking_ = true;
+        } else if (cdn_str.ends_with(u8"bundles")) {
+            is_chunking_ = false;
+        } else {
+            cdn_ /= u8"bundles";
+        }
+
+        if (!remote_.empty()) {
+            bt_rethrow(fs::create_directories(cdn_));
+            bt_assert(curl_ = curl_easy_init());
+            bt_assert(curl_easy_setopt(curl_, CURLOPT_VERBOSE, 0) == CURLE_OK);
+            bt_assert(curl_easy_setopt(curl_, CURLOPT_NOPROGRESS, 1L) == CURLE_OK);
+            curl_easy_setopt(curl_, CURLOPT_WRITEDATA, this);
+            curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, &write_remote_bundle);
+        }
+    }
+
+    std::span<char const> open_chunk(rman::FileChunk const& chunk) {
+        // If we have the chunk already in our last use cache, use it
+        if (remote_chunk_id == chunk.id) return remote_chunk_buffer;
+        if (local_chunk_id == chunk.id) return local_chunk_file.span();
+
+        // Try to open local chunk cache
+        if (is_chunking_) {
+            auto local_chunk_path = cdn_ / fmt::format(u8"{:016X}.chunk", chunk.id);
+            if (fs::exists(local_chunk_path)) {
+                local_chunk_id = {};
+                bt_rethrow(local_chunk_file.open(local_chunk_path).unwrap());
+                local_chunk_id = chunk.id;
+                return local_chunk_file.span();
+            }
+            bt_assert(curl_ && "Local chunk missing and no remote to fallback to!");
+        }
+        auto bundle = open_bundle(chunk);
+        bt_assert(chunk.compressed_size + chunk.compressed_offset <= bundle.size());
+        remote_chunk_id = {};
+        remote_chunk_buffer.clear();
+        remote_chunk_buffer.resize(chunk.uncompressed_size);
+        auto result = ZSTD_decompress(remote_chunk_buffer.data(), remote_chunk_buffer.size(),
+                                      bundle.data() + chunk.compressed_offset, chunk.compressed_size);
+        bt_trace("zstd error: {}", ZSTD_getErrorName(result));
+        bt_assert(!ZSTD_isError(result));
+        bt_assert(result == chunk.uncompressed_size);
+        remote_chunk_id = chunk.id;
+        return remote_chunk_buffer;
+    }
+
+    std::span<char const> open_bundle(rman::FileChunk const& chunk) {
+        // If we already have bundle in our last use cache, use it
+        if (remote_bundle_id == chunk.bundle_id) return remote_bundle_buffer;
+        if (local_bundle_id == chunk.bundle_id) return local_bundle_file.span();
+
+        // Try to open local bundle
+        auto local_bundle_path = cdn_ / fmt::format(u8"{:016X}.bundle", chunk.bundle_id);
+        if (!is_chunking_) {
+            if (fs::exists(local_bundle_path)) {
+                local_bundle_id = {};
+                bt_rethrow(local_bundle_file.open(local_bundle_path).unwrap());
+                local_bundle_id = chunk.bundle_id;
+                return local_bundle_file.span();
+            }
+        }
+
+        // Fetch remote bundle buffer
+        bt_assert(curl_ && "Local bundle missing and no remote to fallback to!");
+        remote_bundle_id = {};
+        remote_bundle_buffer.clear();
+        auto remote_path = remote_ + fmt::format(u8"/bundles/{:016X}.bundle", chunk.bundle_id);
+        curl_easy_setopt(curl_, CURLOPT_URL, (char const*)(remote_path.c_str()));
+        bt_assert(curl_easy_perform(curl_) == CURLE_OK);
+
+        auto rbun = rman::RBUNBundle::read(remote_bundle_buffer);
+        bt_assert(rbun.id == chunk.bundle_id);
+        remote_bundle_id = chunk.bundle_id;
+
+        // Write remote bundle or chunks to local filesystem
+        if (!is_chunking_) {
+            auto out = MMap<char>{};
+            bt_rethrow(out.create(local_bundle_path, remote_bundle_buffer.size()).unwrap());
+            std::memcpy(out.data(), remote_bundle_buffer.data(), remote_bundle_buffer.size());
+        } else {
+            for (size_t offset = 0; auto const& chunk: rbun.chunks) {
+                auto local_chunk_path = cdn_ / fmt::format(u8"{:016X}.chunk", chunk.id);
+                if (!fs::exists(local_chunk_path)) {
+                    bt_assert(chunk.compressed_size + offset <= remote_bundle_buffer.size());
+                    remote_chunk_id = {};
+                    remote_chunk_buffer.clear();
+                    remote_chunk_buffer.resize(chunk.uncompressed_size);
+                    auto result = ZSTD_decompress(remote_chunk_buffer.data(), remote_chunk_buffer.size(),
+                                                  remote_bundle_buffer.data() + offset, chunk.compressed_size);
+                    bt_trace("zstd error: {}", ZSTD_getErrorName(result));
+                    bt_assert(!ZSTD_isError(result));
+                    bt_assert(result == chunk.uncompressed_size);
+                    remote_chunk_id = chunk.id;
+                    auto out = MMap<char>{};
+                    bt_rethrow(out.create(local_chunk_path, chunk.uncompressed_size).unwrap());
+                    std::memcpy(out.data(), remote_chunk_buffer.data(), remote_chunk_buffer.size());
+                }
+                offset += chunk.compressed_size;
+            }
+        }
+
+        return remote_bundle_buffer;
+    }
+
+
+private:
+    fs::path cdn_;
+    std::u8string remote_;
+    bool is_chunking_ = false;
+    void* curl_ = nullptr;
+
+    rman::BundleID remote_bundle_id = {};
+    std::vector<char> remote_bundle_buffer = {};
+
+    rman::ChunkID remote_chunk_id = {};
+    std::vector<char> remote_chunk_buffer = {};
+
+    rman::BundleID local_bundle_id = {};
+    MMap<char const> local_bundle_file = {};
+
+    rman::ChunkID local_chunk_id = {};
+    MMap<char const> local_chunk_file = {};
+
+    static size_t write_remote_bundle(char const* p, size_t s, size_t n, CacheRMAN *o) noexcept {
+        s *= n;
+        o->remote_bundle_buffer.insert(o->remote_bundle_buffer.end(), p, p + s);
+        return s;
+    }
+};
+
 struct FileRMAN::Reader final : IReader {
-    Reader(rman::FileInfo const& info, fs::path const& base)
-        : info_(info), base_(base)
+    Reader(rman::FileInfo const& info, std::shared_ptr<CacheRMAN> cache)
+        : info_(info), cache_(cache)
     {
         bt_trace(u8"path: {}", info_.path);
         data_ = bt_rethrow(std::unique_ptr<char[]>(new char[static_cast<std::size_t>(info_.size)]));
@@ -26,56 +173,36 @@ struct FileRMAN::Reader final : IReader {
         bt_trace(u8"path: {}", info_.path);
         bt_assert(data().size() >= offset + size);
         bt_assert(offset + size == 0 || data_);
+
         // Get chunks inside specific range, guaranteed to succeed if assert passes
+        // Ranges are sorted in order by: BundleID, ChunkID, UncompressedOffset
         auto const chunks = chunks_in_range(static_cast<std::uint32_t>(offset), static_cast<std::uint32_t>(size));
 
-        // Ranges are sorted in order by: BundleID, ChunkID, UncompressedOffset
-        auto bundle = MMap<char const>{};
-        auto last_bundle_id = rman::BundleID::None;
+        auto data = this->data();
+        for (auto i = std::span<rman::FileChunk const>(chunks); !i.empty();) {
+            auto const& cur = i.front();
+            bt_trace(u8"bundle: {:016X}", cur.bundle_id);
+            bt_trace(u8"chunk: {:016X}", cur.id);
 
-        // Cache decompression context in this thread
-        thread_local auto const dctx = std::unique_ptr<ZSTD_DCtx, decltype(&ZSTD_freeDCtx)>(ZSTD_createDCtx(), &ZSTD_freeDCtx);
-        for (auto i = chunks.begin(); i != chunks.end();) {
-            // Skip any offsets that are already uncompressed
-            if (maped_.contains(i->uncompressed_offset)) {
-                last_bundle_id = rman::BundleID::None;
-                ++i;
-                continue;
-            }
-            bt_trace(u8"bundle: {:016X}", i->bundle_id);
+            auto src = cache_->open_chunk(cur);
+            auto dst = data.subspan(cur.uncompressed_offset, cur.uncompressed_size);
 
-            // If we are in new bundle we need to open it
-            if (i->bundle_id != last_bundle_id) {
-                auto const path = base_ / u8"bundles" / fmt::format(u8"{:016X}.bundle", i->bundle_id);
-                bt_trace(u8"base: {}", base_.generic_u8string());
-                bt_rethrow(bundle.open(path).unwrap());
-                last_bundle_id = i->bundle_id;
-            }
+            bt_assert(src.size() == cur.uncompressed_size);
 
-            // Uncompress chunk in specific offset
-            auto const dst = data().subspan(static_cast<std::size_t>(i->uncompressed_offset),
-                                            static_cast<std::size_t>(i->uncompressed_size));
-            auto const src = bundle.span().subspan(static_cast<std::size_t>(i->compressed_offset),
-                                                   static_cast<std::size_t>(i->compressed_size));
-            auto const result = ZSTD_decompressDCtx(dctx.get(), dst.data(), dst.size(), src.data(), src.size());
-            bt_trace("zstd error: {}", ZSTD_getErrorName(result));
-            bt_assert(!ZSTD_isError(result));
-            maped_.insert(i->uncompressed_offset);
-
-            // Find any following chunks that use same data
-            auto const last_chunk_id = i->id;
-            for (++i; i != chunks.end() && i->id == last_chunk_id; ++i) {
-                auto const cpy = data().subspan(static_cast<std::size_t>(i->uncompressed_offset),
-                                                static_cast<std::size_t>(i->uncompressed_size));
-                std::memcpy(cpy.data(), dst.data(), dst.size());
-                maped_.insert(i->uncompressed_offset);
+            while (!i.empty() && i.front().id == cur.id) {
+                auto const& cur = i.front();
+                auto const dst = data.subspan(cur.uncompressed_offset, cur.uncompressed_size);
+                std::memcpy(dst.data(), src.data(), src.size());
+                maped_.insert(cur.uncompressed_offset);
+                i = i.subspan(1);
             }
         }
-        return data().subspan(offset, size);
+
+        return data.subspan(offset, size);
     }
 private:
     rman::FileInfo info_;
-    fs::path base_;
+    std::shared_ptr<CacheRMAN> cache_;
     std::unique_ptr<char[]> data_ = {};
     std::unordered_set<std::uint32_t> maped_;
 
@@ -98,16 +225,19 @@ private:
         auto const start = std::lower_bound(info_.chunks.begin(), info_.chunks.end(), offset, compare_offset);
         auto const end = std::lower_bound(start, info_.chunks.end(), offset + size, compare_offset);
         auto ranges = std::vector<rman::FileChunk> { start, end };
+        std::remove_if(ranges.begin(), ranges.end(), [this] (rman::FileChunk const& chunk) {
+            return maped_.contains(chunk.uncompressed_offset);
+        });
         std::sort(ranges.begin(), ranges.end(), compare_id);
         return ranges;
     }
 };
 
 FileRMAN::FileRMAN(rman::FileInfo const&info,
-                   fs::path const &base,
+                   std::shared_ptr<CacheRMAN> cache,
                    std::shared_ptr<Location> source_location)
     : info_(info)
-    , base_(base)
+    , cache_(cache)
     , location_(std::make_shared<Location>(source_location, info_.path))
 {}
 
@@ -156,7 +286,7 @@ std::shared_ptr<IReader> FileRMAN::open() {
         return result;
     } else {
         bt_assert(info_.link.empty());
-        reader_ = (result = std::make_shared<Reader>(info_, base_));
+        reader_ = (result = std::make_shared<Reader>(info_, cache_));
         return result;
     }
 }
@@ -170,10 +300,11 @@ bool FileRMAN::is_wad() {
 }
 
 ManagerRMAN::ManagerRMAN(std::shared_ptr<IReader> source,
-                         fs::path const& cdn,
+                         fs::path cdn,
+                         std::u8string remote,
                          std::set<std::u8string> const& langs,
                          std::shared_ptr<Location> source_location)
-    : cdn_(cdn)
+    : cache_(std::make_shared<CacheRMAN>(cdn, remote))
     , location_(std::make_shared<Location>(source_location))
 {
     auto manifest = rman::RMANManifest::read(source->read());
@@ -195,7 +326,7 @@ std::vector<std::shared_ptr<IFile>> ManagerRMAN::list() {
     auto result = std::vector<std::shared_ptr<IFile>>{};
     result.reserve(files_.size());
     for (auto const& entry: files_) {
-        result.emplace_back(std::make_shared<FileRMAN>(entry, cdn_, location_));
+        result.emplace_back(std::make_shared<FileRMAN>(entry, cache_, location_));
     }
     return result;
 }

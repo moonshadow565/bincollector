@@ -66,7 +66,7 @@ Checksums IFile::checksums() {
 }
 
 
-std::shared_ptr<IManager> IManager::make(fs::path src, fs::path cdn, std::set<std::u8string> const& langs) {
+std::shared_ptr<IManager> IManager::make(fs::path src, fs::path cdn, std::u8string remote, std::set<std::u8string> const& langs) {
     bt_trace(u8"src: {}", src.generic_u8string());
     bt_trace(u8"cdn: {}", cdn.generic_u8string());
     bt_assert(fs::exists(src));
@@ -97,9 +97,14 @@ std::shared_ptr<IManager> IManager::make(fs::path src, fs::path cdn, std::set<st
             //    <.> "releases"    <channel>
             cdn = src.parent_path().parent_path();
         }
-        bt_assert(fs::exists(cdn));
+        if (remote.empty()) {
+            bt_assert(fs::exists(cdn));
+        } else {
+            bt_assert(!cdn.empty());
+            bt_rethrow(fs::create_directories(cdn));
+        }
         cdn = fs::absolute(cdn);
-        return std::make_shared<ManagerRMAN>(file, cdn, langs, nullptr);
+        return std::make_shared<ManagerRMAN>(file, cdn, remote, langs, nullptr);
     } else if (magic == u8".wad") {
         if (cdn.empty()) {
             //    <.>
